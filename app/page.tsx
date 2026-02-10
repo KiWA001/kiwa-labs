@@ -119,12 +119,16 @@ export default function Home() {
       const xDiff = touchEndX - touchStartRef.current.x; // Positive = swipe right
       const yDiff = touchStartRef.current.y - touchEndY; // Positive = swipe up
       
-      // Calculate velocity (pixels per millisecond)
+      // Calculate velocity (pixels per millisecond) for vertical movement only
       const duration = Date.now() - touchStartRef.current.time;
-      const velocity = duration > 0 ? Math.abs(yDiff) / duration : 0;
+      const velocityY = duration > 0 ? Math.abs(yDiff) / duration : 0;
       
-      // Ignore very fast swipes (> 1.5 px/ms) - these are momentum scrolls, not intentional navigation
-      if (velocity > 1.5) {
+      // Check if this is a horizontal edge swipe (for opening menu)
+      const isEdgeSwipe = touchStartRef.current.x < 40 && xDiff > 50 && Math.abs(xDiff) > Math.abs(yDiff) * 1.5;
+      
+      // Ignore very fast vertical swipes (> 1.5 px/ms) - these are momentum scrolls
+      // But don't block horizontal edge swipes
+      if (!isEdgeSwipe && velocityY > 1.5) {
         touchStartRef.current = null;
         return;
       }
