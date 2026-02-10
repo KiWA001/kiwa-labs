@@ -7,6 +7,8 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import WaterEffect from '@/components/WaterEffect';
 import Image from 'next/image';
 import ExcelPricing from '@/components/ExcelPricing';
+import AIChat from '@/components/AIChat';
+import ParticleDustEffect from '@/components/ParticleDustEffect';
 
 type Stage = 'intro' | 'tagline' | 'landing';
 
@@ -22,6 +24,7 @@ export default function Home() {
     { id: 'journal', label: 'Journal' },
     { id: 'vision-2030', label: 'Vision 2030' },
     { id: 'our-impact', label: 'Our Impact' },
+    { id: 'ai-assistant', label: 'AI Assistant' },
     { id: 'start-a-project', label: 'Start a Project' }
   ];
 
@@ -46,12 +49,29 @@ export default function Home() {
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = useRef(false);
   const menuContentRef = useRef<HTMLDivElement>(null);
+  
+  // Particle effect state for AI page transitions
+  const [showDisperseEffect, setShowDisperseEffect] = useState(false);
+  const [disperseOrigin, setDisperseOrigin] = useState({ x: 0, y: 0 });
+  const prevActiveSectionRef = useRef<string | null>(null);
 
-  // Scroll to top when active section changes
+  // Scroll to top when active section changes and handle AI page particle effects
   useEffect(() => {
     if (menuContentRef.current) {
       menuContentRef.current.scrollTop = 0;
     }
+    
+    // Check if we're leaving the AI assistant page
+    if (prevActiveSectionRef.current === 'ai-assistant' && activeMenuSection !== 'ai-assistant') {
+      // Trigger disperse effect from center of screen
+      setDisperseOrigin({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      });
+      setShowDisperseEffect(true);
+    }
+    
+    prevActiveSectionRef.current = activeMenuSection;
   }, [activeMenuSection]);
 
   const atTopReadyToCloseRef = useRef(false);
@@ -155,17 +175,14 @@ export default function Home() {
         return;
       }
 
-      // Edge Swipe Right detection (Open Menu or close active section)
+      // Edge Swipe Right detection (Open Menu)
       if (
         touchStartRef.current.x < 40 &&
         xDiff > 50 &&
         Math.abs(xDiff) > Math.abs(yDiff) * 1.5
       ) {
-        if (activeMenuSection) {
-          // If viewing a menu section, close it to reveal the menu
-          setActiveMenuSection(null);
-        } else if (!isMenuOpen) {
-          // If menu is closed, open it
+        if (!isMenuOpen) {
+          // Open the menu (works from landing page or menu content pages)
           setIsMenuOpen(true);
         }
         touchStartRef.current = null;
@@ -265,11 +282,11 @@ export default function Home() {
 
     const handleEdgeSwipe = () => {
       if (stage === 'landing') {
-        if (activeMenuSection) {
-          // If viewing a menu section, close it to reveal the menu
-          setActiveMenuSection(null);
+        if (activeMenuSection && !isMenuOpen) {
+          // If viewing a menu section and menu is closed, open the menu
+          setIsMenuOpen(true);
         } else if (!isMenuOpen) {
-          // If menu is closed, open it
+          // If on landing and menu is closed, open it
           setIsMenuOpen(true);
         }
       }
@@ -516,21 +533,33 @@ export default function Home() {
   };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: '100vw',
-        height: '100vh',
-        background: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        touchAction: 'none',
-        userSelect: 'none',
-      }}
-    >
-      <WaterEffect isActive={rippleActive} onSwipe={() => { }} />
+    <>
+      {/* Particle disperse effect when leaving AI page */}
+      <ParticleDustEffect
+        isActive={showDisperseEffect}
+        sourceX={disperseOrigin.x}
+        sourceY={disperseOrigin.y}
+        mode="disperse"
+        onComplete={() => setShowDisperseEffect(false)}
+        particleCount={300}
+        color="#000000"
+      />
+      
+      <div
+        style={{
+          position: 'relative',
+          width: '100vw',
+          height: '100vh',
+          background: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          touchAction: 'none',
+          userSelect: 'none',
+        }}
+      >
+        <WaterEffect isActive={rippleActive} onSwipe={() => { }} />
 
       <div
         style={{
@@ -1770,6 +1799,10 @@ export default function Home() {
                 </div>
               )}
 
+              {activeMenuSection === 'ai-assistant' && (
+                <AIChat />
+              )}
+
               {(activeMenuSection === 'start-a-project' || activeMenuSection === 'contact-us') && (
                 <div style={{ paddingBottom: '100px', maxWidth: '800px', width: '100%' }}>
                   <motion.h2
@@ -2208,5 +2241,6 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div >
+    </>
   );
 }
