@@ -44,6 +44,7 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState(false);
   const isTransitioningRef = useRef(false);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchMovedRef = useRef(false);
   const menuContentRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top when active section changes
@@ -85,7 +86,7 @@ export default function Home() {
   }, []);
 
   // Constants for transition
-  const DURATION = 1.0;
+  const DURATION = 0.8;
 
   // Handlers for swipe detection
   useEffect(() => {
@@ -104,12 +105,32 @@ export default function Home() {
         y: e.touches[0].clientY,
         time: Date.now(),
       };
+      touchMovedRef.current = false;
     };
 
-
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchStartRef.current) return;
+      
+      const touchX = e.touches[0].clientX;
+      const touchY = e.touches[0].clientY;
+      const xDiff = Math.abs(touchX - touchStartRef.current.x);
+      const yDiff = Math.abs(touchY - touchStartRef.current.y);
+      
+      // If moved more than 10px horizontally and it's more horizontal than vertical,
+      // mark as moved (will cancel vertical swipe detection)
+      if (xDiff > 10 && xDiff > yDiff * 1.5) {
+        touchMovedRef.current = true;
+      }
+    };
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (!touchStartRef.current || isTransitioningRef.current) {
+        touchStartRef.current = null;
+        return;
+      }
+      
+      // If touch moved horizontally significantly, don't treat as vertical swipe
+      if (touchMovedRef.current) {
         touchStartRef.current = null;
         return;
       }
@@ -126,9 +147,10 @@ export default function Home() {
       // Check if this is a horizontal edge swipe (for opening menu)
       const isEdgeSwipe = touchStartRef.current.x < 40 && xDiff > 50 && Math.abs(xDiff) > Math.abs(yDiff) * 1.5;
       
-      // Ignore very fast vertical swipes (> 1.5 px/ms) - these are momentum scrolls
+      // Only block extremely fast swipes (> 3 px/ms) which are clear momentum scrolls
+      // Normal swipes are typically 0.5-2 px/ms
       // But don't block horizontal edge swipes
-      if (!isEdgeSwipe && velocityY > 1.5) {
+      if (!isEdgeSwipe && velocityY > 3.0) {
         touchStartRef.current = null;
         return;
       }
@@ -150,8 +172,8 @@ export default function Home() {
         return;
       }
 
-      // Threshold for Vertical Swipes
-      if (Math.abs(yDiff) > 50) {
+      // Threshold for Vertical Swipes - lowered for better responsiveness
+      if (Math.abs(yDiff) > 30) {
         if (yDiff > 0) {
           // Swipe Up (Next)
           if (stage === 'intro') triggerTransition('tagline', 1);
@@ -265,6 +287,7 @@ export default function Home() {
     };
 
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('touchend', handleTouchEnd, { passive: true });
     window.addEventListener('wheel', handleWheel, { passive: true });
     window.addEventListener('edge-swipe-right', handleEdgeSwipe);
@@ -272,6 +295,7 @@ export default function Home() {
 
     return () => {
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('edge-swipe-right', handleEdgeSwipe);
