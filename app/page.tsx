@@ -133,13 +133,19 @@ export default function Home() {
         return;
       }
 
-      // Edge Swipe Right detection (Open Menu)
+      // Edge Swipe Right detection (Open Menu or close active section)
       if (
         touchStartRef.current.x < 40 &&
         xDiff > 50 &&
         Math.abs(xDiff) > Math.abs(yDiff) * 1.5
       ) {
-        if (!isMenuOpen) setIsMenuOpen(true);
+        if (activeMenuSection) {
+          // If viewing a menu section, close it to reveal the menu
+          setActiveMenuSection(null);
+        } else if (!isMenuOpen) {
+          // If menu is closed, open it
+          setIsMenuOpen(true);
+        }
         touchStartRef.current = null;
         return;
       }
@@ -237,7 +243,11 @@ export default function Home() {
 
     const handleEdgeSwipe = () => {
       if (stage === 'landing') {
-        if (!isMenuOpen) {
+        if (activeMenuSection) {
+          // If viewing a menu section, close it to reveal the menu
+          setActiveMenuSection(null);
+        } else if (!isMenuOpen) {
+          // If menu is closed, open it
           setIsMenuOpen(true);
         }
       }
