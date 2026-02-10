@@ -1872,10 +1872,13 @@ export default function Home() {
               // Otherwise -> Close Page in CENTER
               const closePagePosition = !hasPrev ? 'left' : !hasNext ? 'right' : 'center';
               
-              const closePageElement = (
+              const closePageElement = (showIcon = false) => (
                 <div
                   onClick={() => window.history.back()}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: showIcon ? '10px' : '0',
                     cursor: 'pointer',
                     color: '#000',
                     fontSize: '1rem',
@@ -1887,7 +1890,9 @@ export default function Home() {
                   onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
                 >
-                  Close Page
+                  {showIcon && closePagePosition === 'left' && <span style={{ fontSize: '1.2rem' }}>✕</span>}
+                  <span>Close Page</span>
+                  {showIcon && closePagePosition === 'right' && <span style={{ fontSize: '1.2rem' }}>✕</span>}
                 </div>
               );
               
@@ -1946,17 +1951,17 @@ export default function Home() {
                 }}>
                   {/* Left Column */}
                   <div style={{ justifySelf: 'start' }}>
-                    {closePagePosition === 'left' ? closePageElement : prevElement}
+                    {closePagePosition === 'left' ? closePageElement(true) : prevElement}
                   </div>
 
                   {/* Center Column */}
                   <div style={{ justifySelf: 'center' }}>
-                    {closePagePosition === 'center' && closePageElement}
+                    {closePagePosition === 'center' && closePageElement(false)}
                   </div>
 
                   {/* Right Column */}
                   <div style={{ justifySelf: 'end' }}>
-                    {closePagePosition === 'right' ? closePageElement : nextElement}
+                    {closePagePosition === 'right' ? closePageElement(true) : nextElement}
                   </div>
                 </div>
               );
