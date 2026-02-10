@@ -1839,10 +1839,78 @@ export default function Home() {
             {/* Footer Navigation */}
             {(() => {
               const { prev, next } = getPrevNext(activeMenuSection);
+              const hasPrev = !!prev;
+              const hasNext = !!next;
+              
+              // Determine Close Page position
+              // If no prev (first item) -> Close Page on LEFT
+              // If no next (last item) -> Close Page on RIGHT
+              // Otherwise -> Close Page in CENTER
+              const closePagePosition = !hasPrev ? 'left' : !hasNext ? 'right' : 'center';
+              
+              const closePageElement = (
+                <div
+                  onClick={() => window.history.back()}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#000',
+                    fontSize: '1rem',
+                    fontWeight: 400,
+                    paddingBottom: '2px',
+                    opacity: 0.8,
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                >
+                  Close Page
+                </div>
+              );
+              
+              const prevElement = prev && (
+                <div
+                  onClick={() => setActiveMenuSection(prev.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    color: '#000',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>←</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{prev.label}</span>
+                </div>
+              );
+              
+              const nextElement = next && (
+                <div
+                  onClick={() => setActiveMenuSection(next.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    color: '#000',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+                >
+                  <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{next.label}</span>
+                  <span style={{ fontSize: '1.2rem' }}>→</span>
+                </div>
+              );
+              
               return (
                 <div style={{
                   width: '100%',
-                  maxWidth: (isDesktop && (activeMenuSection === 'selected-works' || activeMenuSection === 'pricing')) ? '1000px' : '800px', // Match largest content width
+                  maxWidth: (isDesktop && (activeMenuSection === 'selected-works' || activeMenuSection === 'pricing')) ? '1000px' : '800px',
                   borderTop: '1px solid rgba(0,0,0,0.1)',
                   marginTop: '80px',
                   paddingTop: '60px',
@@ -1852,70 +1920,19 @@ export default function Home() {
                   gap: '20px',
                   fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
                 }}>
-                  {/* Previous Link */}
+                  {/* Left Column */}
                   <div style={{ justifySelf: 'start' }}>
-                    {prev && (
-                      <div
-                        onClick={() => setActiveMenuSection(prev.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          cursor: 'pointer',
-                          color: '#000',
-                          opacity: 0.6,
-                          transition: 'opacity 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
-                      >
-                        <span style={{ fontSize: '1.2rem' }}>←</span>
-                        <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{prev.label}</span>
-                      </div>
-                    )}
+                    {closePagePosition === 'left' ? closePageElement : prevElement}
                   </div>
 
-                  {/* Close Page - Center */}
+                  {/* Center Column */}
                   <div style={{ justifySelf: 'center' }}>
-                    <div
-                      onClick={() => window.history.back()}
-                      style={{
-                        cursor: 'pointer',
-                        color: '#000',
-                        fontSize: '1rem',
-                        fontWeight: 400,
-                        paddingBottom: '2px',
-                        opacity: 0.8,
-                        transition: 'opacity 0.2s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
-                    >
-                      Close Page
-                    </div>
+                    {closePagePosition === 'center' && closePageElement}
                   </div>
 
-                  {/* Next Link */}
+                  {/* Right Column */}
                   <div style={{ justifySelf: 'end' }}>
-                    {next && (
-                      <div
-                        onClick={() => setActiveMenuSection(next.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          cursor: 'pointer',
-                          color: '#000',
-                          opacity: 0.6,
-                          transition: 'opacity 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
-                      >
-                        <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{next.label}</span>
-                        <span style={{ fontSize: '1.2rem' }}>→</span>
-                      </div>
-                    )}
+                    {closePagePosition === 'right' ? closePageElement : nextElement}
                   </div>
                 </div>
               );
