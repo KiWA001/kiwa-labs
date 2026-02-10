@@ -706,6 +706,36 @@ export default function Home() {
           </motion.div>
         )}
 
+        {/* AI Icon - Bottom Right, opposite to numbered menus */}
+        {stage === 'landing' && !activeMenuSection && (
+          <motion.div
+            key="ai-icon-landing"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              position: 'absolute',
+              bottom: '80px',
+              right: '5vw',
+              zIndex: 10,
+              cursor: 'pointer',
+            }}
+            onClick={() => setActiveMenuSection('ai-assistant')}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <div style={{ position: 'relative', width: '50px', height: '50px' }}>
+              <Image
+                src="/Aiicon.png"
+                alt="KiWA Labs AI"
+                fill
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
+          </motion.div>
+        )}
+
         {/* BRAUN GRID NAVIGATION - Hide when menu section is active */}
         {stage === 'landing' && !activeMenuSection && (
           <motion.div
