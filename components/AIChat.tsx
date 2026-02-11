@@ -2,17 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown, { Components } from 'react-markdown';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  rawContent?: string;
 }
 
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [contextSummary, setContextSummary] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -22,6 +25,17 @@ export default function AIChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Add welcome message on mount
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: "What would you like to build?",
+      }]);
+    }
+  }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -39,26 +53,47 @@ export default function AIChat() {
     setIsLoading(true);
 
     try {
+      // Get last 2 messages for context
+      const recentMessages = messages.slice(-2);
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({ 
+          message: input.trim(),
+          contextSummary,
+          recentMessages: recentMessages.map(m => ({ role: m.role, content: m.content }))
+        }),
       });
 
       const data = await response.json();
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.response || 'Sorry, I could not process your request.',
-      };
+      if (data.response) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.response,
+        };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+        setMessages((prev) => [...prev, assistantMessage]);
+        
+        // Update context summary if provided
+        if (data.contextSummary) {
+          setContextSummary(data.contextSummary);
+        }
+      } else {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'I apologize, but I encountered an issue. Please try again.',
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, there was an error. Please try again.',
+        content: 'I apologize, but I encountered an issue. Please try again.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -81,17 +116,21 @@ export default function AIChat() {
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#ffffff',
+        overflow: 'hidden',
+        position: 'relative',
       }}
     >
-      {/* Messages Area */}
+      {/* Messages Area - Scrollable */}
       <div
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '20px',
+          overflowX: 'hidden',
+          padding: '80px 20px 100px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <AnimatePresence>
@@ -114,7 +153,31 @@ export default function AIChat() {
                 wordBreak: 'break-word',
               }}
             >
-              {message.content}
+              {message.role === 'assistant' ? (
+                <div className="markdown-content">
+                  <ReactMarkdown
+                    components={{
+                      strong: ({ children }: { children?: React.ReactNode }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                      code: ({ children }: { children?: React.ReactNode }) => (
+                        <code style={{ 
+                          backgroundColor: 'rgba(0,0,0,0.1)', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px',
+                          fontFamily: 'monospace',
+                          fontSize: '0.9em'
+                        }}>
+                          {children}
+                        </code>
+                      ),
+                      p: ({ children }: { children?: React.ReactNode }) => <p style={{ margin: 0 }}>{children}</p>,
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                message.content
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -161,9 +224,14 @@ export default function AIChat() {
       {/* Input Area - Fixed at bottom */}
       <div
         style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
           padding: '12px 16px 20px 16px',
           backgroundColor: '#ffffff',
           borderTop: '1px solid #f0f0f0',
+          zIndex: 10,
         }}
       >
         <form
@@ -181,7 +249,7 @@ export default function AIChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message KiWA Labs AI"
+            placeholder="Message K-AI..."
             disabled={isLoading}
             style={{
               flex: 1,
@@ -235,6 +303,12 @@ export default function AIChat() {
         @keyframes bounce {
           0%, 80%, 100% { transform: scale(0); }
           40% { transform: scale(1); }
+        }
+        .markdown-content p {
+          margin: 0;
+        }
+        .markdown-content p + p {
+          margin-top: 8px;
         }
       `}</style>
     </div>
