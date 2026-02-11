@@ -8,7 +8,6 @@ import WaterEffect from '@/components/WaterEffect';
 import Image from 'next/image';
 import ExcelPricing from '@/components/ExcelPricing';
 import AIChat from '@/components/AIChat';
-import ParticleDustEffect from '@/components/ParticleDustEffect';
 
 type Stage = 'intro' | 'tagline' | 'landing';
 
@@ -49,29 +48,12 @@ export default function Home() {
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = useRef(false);
   const menuContentRef = useRef<HTMLDivElement>(null);
-  
-  // Particle effect state for AI page transitions
-  const [showDisperseEffect, setShowDisperseEffect] = useState(false);
-  const [disperseOrigin, setDisperseOrigin] = useState({ x: 0, y: 0 });
-  const prevActiveSectionRef = useRef<string | null>(null);
 
-  // Scroll to top when active section changes and handle AI page particle effects
+  // Scroll to top when active section changes
   useEffect(() => {
     if (menuContentRef.current) {
       menuContentRef.current.scrollTop = 0;
     }
-    
-    // Check if we're leaving the AI assistant page
-    if (prevActiveSectionRef.current === 'ai-assistant' && activeMenuSection !== 'ai-assistant') {
-      // Trigger disperse effect from center of screen
-      setDisperseOrigin({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2
-      });
-      setShowDisperseEffect(true);
-    }
-    
-    prevActiveSectionRef.current = activeMenuSection;
   }, [activeMenuSection]);
 
   const atTopReadyToCloseRef = useRef(false);
@@ -533,19 +515,7 @@ export default function Home() {
   };
 
   return (
-    <>
-      {/* Particle disperse effect when leaving AI page */}
-      <ParticleDustEffect
-        isActive={showDisperseEffect}
-        sourceX={disperseOrigin.x}
-        sourceY={disperseOrigin.y}
-        mode="disperse"
-        onComplete={() => setShowDisperseEffect(false)}
-        particleCount={300}
-        color="#000000"
-      />
-      
-      <div
+    <div
         style={{
           position: 'relative',
           width: '100vw',
@@ -2271,6 +2241,5 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div >
-    </>
   );
 }
