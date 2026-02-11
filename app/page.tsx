@@ -2027,7 +2027,13 @@ export default function Home() {
                   WebkitBackdropFilter: 'blur(10px)',
                   zIndex: 49, // Behind menu (50)
                 }}
-                onClick={() => window.history.back()}
+                onClick={() => {
+                  // Close menu and any active section when clicking backdrop
+                  setIsMenuOpen(false);
+                  if (activeMenuSection) {
+                    setActiveMenuSection(null);
+                  }
+                }}
               />
 
               <motion.div
@@ -2062,7 +2068,13 @@ export default function Home() {
                     cursor: 'pointer',
                     zIndex: 51
                   }}
-                  onClick={() => window.history.back()}
+                  onClick={() => {
+                    // Close menu and any active section
+                    setIsMenuOpen(false);
+                    if (activeMenuSection) {
+                      setActiveMenuSection(null);
+                    }
+                  }}
                 >
                   <Image
                     src="/click-to-close-menu-icon.png"
