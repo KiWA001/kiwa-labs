@@ -617,8 +617,8 @@ export default function Home() {
 
       {/* LANDING STAGE UI */}
       <AnimatePresence custom={direction}>
-        {stage === 'landing' && (
-          /* Menu Button (Top Left) */
+        {stage === 'landing' && !activeMenuSection && (
+          /* Menu Button (Top Left) - Hidden on AI page */
           <motion.div
             key="menu-btn"
             custom={direction}
@@ -647,8 +647,8 @@ export default function Home() {
           </motion.div>
         )}
 
-        {stage === 'landing' && (
-          /* Contact Text (Top Right) */
+        {stage === 'landing' && !activeMenuSection && (
+          /* Contact Text (Top Right) - Hidden on AI page */
           <motion.div
             key="contact-text"
             custom={direction}
@@ -2045,11 +2045,8 @@ export default function Home() {
                   zIndex: 49, // Behind menu (50)
                 }}
                 onClick={() => {
-                  // Close menu and any active section when clicking backdrop
+                  // Only close the menu, keep the active section open
                   setIsMenuOpen(false);
-                  if (activeMenuSection) {
-                    setActiveMenuSection(null);
-                  }
                 }}
               />
 
@@ -2086,11 +2083,8 @@ export default function Home() {
                     zIndex: 51
                   }}
                   onClick={() => {
-                    // Close menu and any active section
+                    // Only close the menu, keep the active section open
                     setIsMenuOpen(false);
-                    if (activeMenuSection) {
-                      setActiveMenuSection(null);
-                    }
                   }}
                 >
                   <Image

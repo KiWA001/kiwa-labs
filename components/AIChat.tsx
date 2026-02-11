@@ -151,7 +151,7 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
   };
 
-  // Prevent swipe gestures on the AI chat container
+  // Prevent swipe gestures and iOS backswipe on the AI chat container
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -161,14 +161,24 @@ export default function AIChat({ onClose }: AIChatProps) {
       e.stopPropagation();
     };
 
+    const preventSwipeBack = (e: Event) => {
+      // Prevent iOS back swipe from closing AI page
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
     container.addEventListener('touchstart', preventSwipe, { passive: false });
     container.addEventListener('touchmove', preventSwipe, { passive: false });
     container.addEventListener('touchend', preventSwipe, { passive: false });
+    window.addEventListener('swipe-back', preventSwipeBack, true);
+    window.addEventListener('edge-swipe-right', preventSwipeBack, true);
 
     return () => {
       container.removeEventListener('touchstart', preventSwipe);
       container.removeEventListener('touchmove', preventSwipe);
       container.removeEventListener('touchend', preventSwipe);
+      window.removeEventListener('swipe-back', preventSwipeBack, true);
+      window.removeEventListener('edge-swipe-right', preventSwipeBack, true);
     };
   }, []);
 
@@ -207,12 +217,14 @@ export default function AIChat({ onClose }: AIChatProps) {
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '1.2rem',
+            fontSize: '1.5rem',
             color: '#000',
             padding: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            width: '30px',
+            height: '30px',
           }}
           aria-label="Close chat"
         >
@@ -234,11 +246,12 @@ export default function AIChat({ onClose }: AIChatProps) {
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '0.85rem',
-            color: '#666',
+            fontSize: '1.2rem',
+            fontWeight: 500,
+            color: '#000',
+            letterSpacing: '-0.01em',
             padding: '8px 12px',
-            borderRadius: '12px',
-            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
+            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
           }}
           aria-label="Clear chat"
         >
