@@ -1810,8 +1810,13 @@ export default function Home() {
                   bottom: 0,
                   overflow: 'hidden',
                   zIndex: 45,
-                }}>
-                  <AIChat />
+                  touchAction: 'none',
+                }}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                >
+                  <AIChat onClose={() => setActiveMenuSection(null)} />
                 </div>
               )}
 

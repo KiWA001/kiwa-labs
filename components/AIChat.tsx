@@ -2,21 +2,62 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown, { Components } from 'react-markdown';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  rawContent?: string;
 }
 
-export default function AIChat() {
+interface AIChatProps {
+  onClose: () => void;
+}
+
+export default function AIChat({ onClose }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [contextSummary, setContextSummary] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('kai-messages');
+    const savedContext = localStorage.getItem('kai-context');
+    
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        setMessages(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved messages');
+      }
+    } else {
+      // Set welcome message if no history
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: "What would you like to build?",
+      }]);
+    }
+    
+    if (savedContext) {
+      setContextSummary(savedContext);
+    }
+  }, []);
+
+  // Save to localStorage whenever messages or context changes
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('kai-messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem('kai-context', contextSummary);
+  }, [contextSummary]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -26,16 +67,18 @@ export default function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  // Add welcome message on mount
-  useEffect(() => {
-    if (messages.length === 0) {
+  const handleClearChat = () => {
+    if (confirm('Are you sure you want to clear the chat history?')) {
       setMessages([{
         id: 'welcome',
         role: 'assistant',
         content: "What would you like to build?",
       }]);
+      setContextSummary('');
+      localStorage.removeItem('kai-messages');
+      localStorage.removeItem('kai-context');
     }
-  }, []);
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -108,8 +151,30 @@ export default function AIChat() {
     }
   };
 
+  // Prevent swipe gestures on the AI chat container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const preventSwipe = (e: TouchEvent) => {
+      // Prevent default swipe behavior
+      e.stopPropagation();
+    };
+
+    container.addEventListener('touchstart', preventSwipe, { passive: false });
+    container.addEventListener('touchmove', preventSwipe, { passive: false });
+    container.addEventListener('touchend', preventSwipe, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', preventSwipe);
+      container.removeEventListener('touchmove', preventSwipe);
+      container.removeEventListener('touchend', preventSwipe);
+    };
+  }, []);
+
   return (
     <div
+      ref={containerRef}
       style={{
         width: '100%',
         height: '100%',
@@ -120,6 +185,67 @@ export default function AIChat() {
         position: 'relative',
       }}
     >
+      {/* Header with Close and Clear buttons */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          padding: '16px 20px',
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid #f0f0f0',
+          zIndex: 20,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.2rem',
+            color: '#000',
+            padding: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          aria-label="Close chat"
+        >
+          ✕
+        </button>
+        <span
+          style={{
+            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
+            fontSize: '1rem',
+            fontWeight: 500,
+            color: '#000',
+          }}
+        >
+          K-AI
+        </span>
+        <button
+          onClick={handleClearChat}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            color: '#666',
+            padding: '8px 12px',
+            borderRadius: '12px',
+            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
+          }}
+          aria-label="Clear chat"
+        >
+          Clear
+        </button>
+      </div>
+
       {/* Messages Area - Scrollable */}
       <div
         style={{
@@ -134,7 +260,7 @@ export default function AIChat() {
         }}
       >
         <AnimatePresence>
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <motion.div
               key={message.id}
               initial={{ opacity: 0, y: 10 }}
@@ -150,33 +276,52 @@ export default function AIChat() {
                 fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
                 fontSize: '0.95rem',
                 lineHeight: 1.5,
-                wordBreak: 'break-word',
+                wordWrap: 'break-word',
+                overflowWrap: 'break-word',
+                whiteSpace: 'pre-wrap',
+                marginTop: index === 0 && message.id === 'welcome' ? '20px' : '0',
               }}
             >
               {message.role === 'assistant' ? (
-                <div className="markdown-content">
+                <div 
+                  className="markdown-content"
+                  style={{
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
                   <ReactMarkdown
                     components={{
-                      strong: ({ children }: { children?: React.ReactNode }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
-                      code: ({ children }: { children?: React.ReactNode }) => (
-                        <code style={{ 
-                          backgroundColor: 'rgba(0,0,0,0.1)', 
-                          padding: '2px 6px', 
-                          borderRadius: '4px',
-                          fontFamily: 'monospace',
-                          fontSize: '0.9em'
-                        }}>
+                      strong: ({ children }) => (
+                        <strong style={{ fontWeight: 600, display: 'inline' }}>
+                          {children}
+                        </strong>
+                      ),
+                      code: ({ children }) => (
+                        <code 
+                          style={{ 
+                            backgroundColor: 'rgba(0,0,0,0.1)', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px',
+                            fontFamily: 'monospace',
+                            fontSize: '0.85em',
+                            display: 'inline',
+                            wordBreak: 'break-all',
+                          }}
+                        >
                           {children}
                         </code>
                       ),
-                      p: ({ children }: { children?: React.ReactNode }) => <p style={{ margin: 0 }}>{children}</p>,
+                      p: ({ children }) => (
+                        <p style={{ margin: 0, display: 'inline' }}>{children}</p>
+                      ),
                     }}
                   >
                     {message.content}
                   </ReactMarkdown>
                 </div>
               ) : (
-                message.content
+                <span style={{ wordBreak: 'break-word' }}>{message.content}</span>
               )}
             </motion.div>
           ))}
@@ -303,12 +448,6 @@ export default function AIChat() {
         @keyframes bounce {
           0%, 80%, 100% { transform: scale(0); }
           40% { transform: scale(1); }
-        }
-        .markdown-content p {
-          margin: 0;
-        }
-        .markdown-content p + p {
-          margin-top: 8px;
         }
       `}</style>
     </div>
