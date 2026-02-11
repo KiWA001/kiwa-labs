@@ -1800,33 +1800,7 @@ export default function Home() {
               )}
 
               {activeMenuSection === 'ai-assistant' && (
-                <div style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  position: 'relative'
-                }}>
-                  {/* X Button to close AI page */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '20px',
-                      left: '20px',
-                      width: '30px',
-                      height: '30px',
-                      cursor: 'pointer',
-                      zIndex: 10,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    onClick={() => setActiveMenuSection(null)}
-                  >
-                    <span style={{ fontSize: '1.5rem', color: '#000' }}>✕</span>
-                  </div>
-                  <AIChat />
-                </div>
+                <AIChat />
               )}
 
               {(activeMenuSection === 'start-a-project' || activeMenuSection === 'contact-us') && (
