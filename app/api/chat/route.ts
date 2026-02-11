@@ -18,7 +18,7 @@ export async function POST(request: Request) {
         'Authorization': 'Bearer lzWRBwuWxwTGkihMcR4jCicHNpFGiKmA',
       },
       body: JSON.stringify({
-        model: 'devstral-2',
+        model: 'mistral-tiny',
         messages: [
           {
             role: 'system',

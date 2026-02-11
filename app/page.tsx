@@ -1870,7 +1870,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'pricing', 'journal', 'our-impact', 'start-a-project', 'contact-us'].includes(activeMenuSection) && (
+              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'pricing', 'journal', 'our-impact', 'start-a-project', 'contact-us', 'ai-assistant'].includes(activeMenuSection) && (
                 <>
                   <h2 style={{
                     fontSize: 'clamp(1.8rem, 5vw, 3rem)',
@@ -1893,8 +1893,8 @@ export default function Home() {
               )}
             </div>
 
-            {/* Footer Navigation */}
-            {(() => {
+            {/* Footer Navigation - Hide for AI Assistant */}
+            {activeMenuSection !== 'ai-assistant' && (() => {
               const { prev, next } = getPrevNext(activeMenuSection);
               const hasPrev = !!prev;
               const hasNext = !!next;
