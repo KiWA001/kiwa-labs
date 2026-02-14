@@ -63,8 +63,12 @@ export default function AIChat({ onClose }: AIChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Auto-scroll only when user sends a message, not when AI responds
   useEffect(() => {
-    scrollToBottom();
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'user') {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const handleClearChat = () => {
