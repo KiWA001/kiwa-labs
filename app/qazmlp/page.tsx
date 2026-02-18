@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { createClient } from '@supabase/supabase-js';
 
 interface ChatMessage {
   id: string;
@@ -31,11 +30,6 @@ interface ChatSession {
     preferredContact?: string;
   };
 }
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function AdminPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -91,55 +85,15 @@ export default function AdminPage() {
     checkPasskey();
   }, []);
 
-  // Initial fetch and realtime subscription
+  // Fetch sessions when authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Initial fetch
     fetchSessions();
-
-    // Set up realtime subscription
-    const subscription = supabase
-      .channel('chat_sessions_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_sessions'
-        },
-        (payload) => {
-          console.log('Realtime update:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            // New session added
-            const newSession = normalizeSession(payload.new as ChatSession);
-            setSessions(prev => [newSession, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            // Session updated
-            const updatedSession = normalizeSession(payload.new as ChatSession);
-            setSessions(prev => 
-              prev.map(s => s.sessionId === updatedSession.sessionId ? updatedSession : s)
-            );
-            
-            // If this is the selected session, update it
-            if (selectedSession?.sessionId === updatedSession.sessionId) {
-              setSelectedSession(updatedSession);
-            }
-          } else if (payload.eventType === 'DELETE') {
-            // Session deleted
-            setSessions(prev => 
-              prev.filter(s => s.sessionId !== (payload.old as ChatSession).session_id)
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [isAuthenticated, selectedSession?.sessionId]);
+    // Poll every 3 seconds for updates
+    const interval = setInterval(fetchSessions, 3000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -156,26 +110,20 @@ export default function AdminPage() {
 
   const fetchSessions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .order('last_updated', { ascending: false });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        return;
-      }
-
-      const normalizedSessions = (data || []).map(normalizeSession);
-      setSessions(normalizedSessions);
-      
-      // Update selected session if it exists
-      if (selectedSession) {
-        const updated = normalizedSessions.find((s: ChatSession) => 
-          s.sessionId === selectedSession.sessionId
-        );
-        if (updated) {
-          setSelectedSession(updated);
+      const response = await fetch('/api/admin/sessions');
+      if (response.ok) {
+        const data = await response.json();
+        const normalizedSessions = (data.sessions || []).map(normalizeSession);
+        setSessions(normalizedSessions);
+        
+        // Update selected session if it exists
+        if (selectedSession) {
+          const updated = normalizedSessions.find((s: ChatSession) => 
+            s.sessionId === selectedSession.sessionId
+          );
+          if (updated) {
+            setSelectedSession(updated);
+          }
         }
       }
     } catch (error) {
@@ -261,19 +209,19 @@ export default function AdminPage() {
       prev.map(s => s.sessionId === selectedSession.sessionId ? updatedSession : s)
     );
 
-    // Save to Supabase
+    // Save via API
     try {
-      const { error } = await supabase
-        .from('chat_sessions')
-        .update({
-          messages: updatedMessages,
-          last_updated: new Date().toISOString()
-        })
-        .eq('session_id', selectedSession.sessionId);
+      const response = await fetch('/api/admin/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: selectedSession.sessionId,
+          message: newMessage
+        }),
+      });
 
-      if (error) {
-        console.error('Failed to save message:', error);
-        alert('Failed to send message');
+      if (!response.ok) {
+        console.error('Failed to save message');
       }
     } catch (error) {
       console.error('Send message error:', error);
