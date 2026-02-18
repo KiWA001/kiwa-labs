@@ -481,6 +481,15 @@ export default function AIChat({ onClose }: AIChatProps) {
           0%, 80%, 100% { transform: scale(0); }
           40% { transform: scale(1); }
         }
+        
+        /* Mobile: Make X button bigger */
+        @media (max-width: 768px) {
+          button[aria-label="Close chat"] {
+            font-size: 1.8rem !important;
+            width: 44px !important;
+            height: 44px !important;
+          }
+        }
       `}</style>
     </div>
   );
