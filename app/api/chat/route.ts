@@ -49,7 +49,7 @@ If the user says ANYTHING similar to these phrases, immediately set readyForHand
 - Any variation of wanting human assistance
 
 When triggered, respond with:
-"I'll connect you with our team right away. They'll be able to assist you better with this."
+"Tap the button below to connect to our team. They'll be able to assist you better with this."
 
 OPENING (DEFAULT)
 Start with: What would you like to build?

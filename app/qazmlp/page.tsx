@@ -36,15 +36,29 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminInput, setAdminInput] = useState('');
+  const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Password from user
   const ADMIN_PASSWORD = 'Aaaaa1$.';
 
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setShowSidebar(true);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
       fetchSessions();
-      // Poll for new messages every 5 seconds
       const interval = setInterval(fetchSessions, 5000);
       return () => clearInterval(interval);
     }
@@ -61,7 +75,6 @@ export default function AdminPage() {
         const data = await response.json();
         setSessions(data.sessions || []);
         
-        // Update selected session if it exists
         if (selectedSession) {
           const updated = data.sessions.find((s: ChatSession) => s.sessionId === selectedSession.sessionId);
           if (updated) {
@@ -96,7 +109,6 @@ export default function AdminPage() {
       timestamp: new Date().toISOString()
     };
 
-    // Optimistically update UI
     const updatedSession = {
       ...selectedSession,
       messages: [...selectedSession.messages, newMessage],
@@ -105,7 +117,6 @@ export default function AdminPage() {
     setSelectedSession(updatedSession);
     setAdminInput('');
 
-    // Save to backend
     try {
       await fetch('/api/admin/send-message', {
         method: 'POST',
@@ -116,10 +127,16 @@ export default function AdminPage() {
         }),
       });
       
-      // Refresh sessions
       fetchSessions();
     } catch (error) {
       console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleSessionSelect = (session: ChatSession) => {
+    setSelectedSession(session);
+    if (isMobile) {
+      setShowSidebar(false);
     }
   };
 
@@ -136,7 +153,7 @@ export default function AdminPage() {
     switch (role) {
       case 'user': return '#000';
       case 'assistant': return '#f0f0f0';
-      case 'admin': return '#0066cc'; // Blue for admin
+      case 'admin': return '#0066cc';
       default: return '#f0f0f0';
     }
   };
@@ -159,13 +176,14 @@ export default function AdminPage() {
         justifyContent: 'center',
         backgroundColor: '#f5f5f5',
         fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
+        padding: '20px',
       }}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
             backgroundColor: '#ffffff',
-            padding: '40px',
+            padding: isMobile ? '30px 20px' : '40px',
             borderRadius: '16px',
             boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
             width: '100%',
@@ -173,7 +191,7 @@ export default function AdminPage() {
           }}
         >
           <h1 style={{
-            fontSize: '1.5rem',
+            fontSize: isMobile ? '1.3rem' : '1.5rem',
             fontWeight: 600,
             marginBottom: '24px',
             textAlign: 'center',
@@ -194,6 +212,7 @@ export default function AdminPage() {
                 fontSize: '1rem',
                 marginBottom: '16px',
                 outline: 'none',
+                boxSizing: 'border-box',
               }}
             />
             <button
@@ -228,27 +247,50 @@ export default function AdminPage() {
       <div style={{
         backgroundColor: '#ffffff',
         borderBottom: '1px solid #e0e0e0',
-        padding: '20px 40px',
+        padding: isMobile ? '15px 20px' : '20px 40px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
       }}>
-        <h1 style={{
-          fontSize: '1.5rem',
-          fontWeight: 600,
-          margin: 0,
-        }}>
-          KiWA Labs - Chat Admin
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isMobile && selectedSession && (
+            <button
+              onClick={() => {
+                setSelectedSession(null);
+                setShowSidebar(true);
+              }}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'transparent',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              ← Back
+            </button>
+          )}
+          <h1 style={{
+            fontSize: isMobile ? '1.1rem' : '1.5rem',
+            fontWeight: 600,
+            margin: 0,
+          }}>
+            {isMobile && selectedSession ? 'Chat' : 'KiWA Labs - Chat Admin'}
+          </h1>
+        </div>
         <button
           onClick={() => setIsAuthenticated(false)}
           style={{
-            padding: '8px 16px',
+            padding: isMobile ? '6px 12px' : '8px 16px',
             backgroundColor: 'transparent',
             border: '1px solid #000',
             borderRadius: '6px',
             cursor: 'pointer',
-            fontSize: '0.9rem',
+            fontSize: isMobile ? '0.85rem' : '0.9rem',
           }}
         >
           Logout
@@ -257,264 +299,275 @@ export default function AdminPage() {
 
       <div style={{
         display: 'flex',
-        height: 'calc(100vh - 73px)',
+        height: isMobile ? 'calc(100vh - 60px)' : 'calc(100vh - 73px)',
+        flexDirection: isMobile ? 'column' : 'row',
       }}>
         {/* Sidebar - Session List */}
-        <div style={{
-          width: '350px',
-          backgroundColor: '#ffffff',
-          borderRight: '1px solid #e0e0e0',
-          overflowY: 'auto',
-        }}>
+        {(!isMobile || (isMobile && showSidebar && !selectedSession)) && (
           <div style={{
-            padding: '20px',
-            borderBottom: '1px solid #e0e0e0',
-            fontWeight: 600,
+            width: isMobile ? '100%' : '350px',
+            backgroundColor: '#ffffff',
+            borderRight: isMobile ? 'none' : '1px solid #e0e0e0',
+            overflowY: 'auto',
+            display: isMobile && selectedSession ? 'none' : 'block',
           }}>
-            Conversations ({sessions.length})
-          </div>
-          
-          {loading ? (
-            <div style={{ padding: '20px', textAlign: 'center' }}>Loading...</div>
-          ) : sessions.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
-              No conversations yet
+            <div style={{
+              padding: isMobile ? '15px' : '20px',
+              borderBottom: '1px solid #e0e0e0',
+              fontWeight: 600,
+              fontSize: isMobile ? '0.9rem' : '1rem',
+            }}>
+              Conversations ({sessions.length})
             </div>
-          ) : (
-            sessions.map((session) => (
-              <div
-                key={session.sessionId}
-                onClick={() => setSelectedSession(session)}
-                style={{
-                  padding: '16px 20px',
-                  borderBottom: '1px solid #f0f0f0',
-                  cursor: 'pointer',
-                  backgroundColor: selectedSession?.sessionId === session.sessionId ? '#f5f5f5' : 'transparent',
-                  transition: 'background-color 0.2s',
-                }}
-              >
-                <div style={{
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  marginBottom: '4px',
-                }}>
-                  {new Date(session.lastUpdated).toLocaleString()}
-                </div>
-                <div style={{
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>
-                  {session.messages[0]?.content.substring(0, 50)}...
-                </div>
-                <div style={{
-                  fontSize: '0.8rem',
-                  color: '#888',
-                  marginTop: '4px',
-                }}>
-                  {session.messages.length} messages
-                  {session.status === 'handoff_requested' && (
-                    <span style={{
-                      marginLeft: '8px',
-                      padding: '2px 8px',
-                      backgroundColor: '#000',
-                      color: '#fff',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                    }}>
-                      Handoff
-                    </span>
-                  )}
-                  {session.contactInfo && (
-                    <span style={{
-                      marginLeft: '8px',
-                      padding: '2px 8px',
-                      backgroundColor: '#0066cc',
-                      color: '#fff',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                    }}>
-                      Has Contact
-                    </span>
-                  )}
-                </div>
+            
+            {loading ? (
+              <div style={{ padding: '20px', textAlign: 'center' }}>Loading...</div>
+            ) : sessions.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+                No conversations yet
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session.sessionId}
+                  onClick={() => handleSessionSelect(session)}
+                  style={{
+                    padding: isMobile ? '12px 15px' : '16px 20px',
+                    borderBottom: '1px solid #f0f0f0',
+                    cursor: 'pointer',
+                    backgroundColor: selectedSession?.sessionId === session.sessionId ? '#f5f5f5' : 'transparent',
+                    transition: 'background-color 0.2s',
+                  }}
+                >
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: '#666',
+                    marginBottom: '4px',
+                  }}>
+                    {new Date(session.lastUpdated).toLocaleString()}
+                  </div>
+                  <div style={{
+                    fontSize: isMobile ? '0.9rem' : '0.95rem',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {session.messages[0]?.content.substring(0, 40)}...
+                  </div>
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#888',
+                    marginTop: '4px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '4px',
+                  }}>
+                    <span>{session.messages.length} msgs</span>
+                    {session.status === 'handoff_requested' && (
+                      <span style={{
+                        padding: '2px 6px',
+                        backgroundColor: '#000',
+                        color: '#fff',
+                        borderRadius: '4px',
+                        fontSize: '0.65rem',
+                      }}>
+                        Handoff
+                      </span>
+                    )}
+                    {session.contactInfo && (
+                      <span style={{
+                        padding: '2px 6px',
+                        backgroundColor: '#0066cc',
+                        color: '#fff',
+                        borderRadius: '4px',
+                        fontSize: '0.65rem',
+                      }}>
+                        {session.contactInfo.preferredContact?.substring(0, 15)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* Main Chat View */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#ffffff',
-        }}>
-          {selectedSession ? (
-            <>
-              {/* Session Header */}
-              <div style={{
-                padding: '20px',
-                borderBottom: '1px solid #e0e0e0',
-                backgroundColor: '#fafafa',
-              }}>
+        {(!isMobile || (isMobile && selectedSession)) && (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            width: isMobile ? '100%' : 'auto',
+          }}>
+            {selectedSession ? (
+              <>
+                {/* Session Header */}
                 <div style={{
-                  fontSize: '0.85rem',
-                  color: '#666',
+                  padding: isMobile ? '15px' : '20px',
+                  borderBottom: '1px solid #e0e0e0',
+                  backgroundColor: '#fafafa',
                 }}>
-                  Session ID: {selectedSession.sessionId}
-                </div>
-                <div style={{
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  marginTop: '4px',
-                }}>
-                  Last updated: {new Date(selectedSession.lastUpdated).toLocaleString()}
-                </div>
-                {selectedSession.status === 'handoff_requested' && (
                   <div style={{
-                    marginTop: '8px',
-                    padding: '8px 12px',
-                    backgroundColor: '#000',
-                    color: '#fff',
-                    borderRadius: '6px',
-                    display: 'inline-block',
-                    fontSize: '0.85rem',
+                    fontSize: '0.8rem',
+                    color: '#666',
                   }}>
-                    User requested team handoff
+                    Session: {selectedSession.sessionId.substring(0, 20)}...
                   </div>
-                )}
-                {selectedSession.contactInfo && (
                   <div style={{
-                    marginTop: '8px',
-                    padding: '12px',
-                    backgroundColor: '#e8f4fd',
-                    borderRadius: '6px',
-                    fontSize: '0.85rem',
+                    fontSize: '0.8rem',
+                    color: '#666',
+                    marginTop: '4px',
                   }}>
-                    <strong>Contact Information:</strong><br />
-                    {selectedSession.contactInfo.email && <>Email: {selectedSession.contactInfo.email}<br /></>}
-                    {selectedSession.contactInfo.phone && <>Phone: {selectedSession.contactInfo.phone}<br /></>}
-                    {selectedSession.contactInfo.whatsapp && <>WhatsApp: {selectedSession.contactInfo.whatsapp}<br /></>}
-                    {selectedSession.contactInfo.preferredContact && <>Preferred: {selectedSession.contactInfo.preferredContact}</>}
+                    {new Date(selectedSession.lastUpdated).toLocaleString()}
                   </div>
-                )}
-              </div>
+                  {selectedSession.status === 'handoff_requested' && (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '6px 10px',
+                      backgroundColor: '#000',
+                      color: '#fff',
+                      borderRadius: '6px',
+                      display: 'inline-block',
+                      fontSize: '0.8rem',
+                    }}>
+                      User requested handoff
+                    </div>
+                  )}
+                  {selectedSession.contactInfo && (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '10px',
+                      backgroundColor: '#e8f4fd',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                    }}>
+                      <strong>Contact:</strong> {selectedSession.contactInfo.preferredContact}
+                      {selectedSession.contactInfo.email && <><br/>Email: {selectedSession.contactInfo.email}</>}
+                      {selectedSession.contactInfo.whatsapp && <><br/>WhatsApp: {selectedSession.contactInfo.whatsapp}</>}
+                    </div>
+                  )}
+                </div>
 
-              {/* Messages */}
+                {/* Messages */}
+                <div style={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  padding: isMobile ? '15px' : '20px',
+                }}>
+                  {selectedSession.messages.map((message) => (
+                    <div
+                      key={message.id}
+                      style={{
+                        marginBottom: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: message.role === 'user' ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      <div style={{
+                        maxWidth: isMobile ? '85%' : '70%',
+                        backgroundColor: getMessageBackground(message.role),
+                        color: getMessageColor(message.role),
+                        padding: '10px 14px',
+                        borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        fontSize: '0.9rem',
+                        lineHeight: 1.4,
+                        wordBreak: 'break-word',
+                      }}>
+                        {message.content}
+                      </div>
+                      <div style={{
+                        fontSize: '0.7rem',
+                        color: '#888',
+                        marginTop: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                        {message.role === 'admin' && (
+                          <span style={{
+                            width: '14px',
+                            height: '14px',
+                            backgroundColor: '#0066cc',
+                            borderRadius: '50%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '9px',
+                            color: '#fff',
+                          }}>
+                            👤
+                          </span>
+                        )}
+                        {getMessageLabel(message.role)} • {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Admin Input */}
+                <div style={{
+                  padding: isMobile ? '12px 15px' : '16px 20px',
+                  borderTop: '1px solid #e0e0e0',
+                  backgroundColor: '#fafafa',
+                }}>
+                  <form onSubmit={handleSendMessage} style={{
+                    display: 'flex',
+                    gap: '10px',
+                  }}>
+                    <input
+                      type="text"
+                      value={adminInput}
+                      onChange={(e) => setAdminInput(e.target.value)}
+                      placeholder="Type your response..."
+                      style={{
+                        flex: 1,
+                        padding: isMobile ? '10px 12px' : '12px 16px',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '24px',
+                        fontSize: '0.95rem',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!adminInput.trim()}
+                      style={{
+                        padding: isMobile ? '10px 16px' : '12px 24px',
+                        backgroundColor: adminInput.trim() ? '#0066cc' : '#ccc',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '24px',
+                        fontSize: '0.9rem',
+                        fontWeight: 500,
+                        cursor: adminInput.trim() ? 'pointer' : 'default',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Send
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
               <div style={{
                 flex: 1,
-                overflowY: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#888',
                 padding: '20px',
+                textAlign: 'center',
               }}>
-                {selectedSession.messages.map((message, index) => (
-                  <div
-                    key={message.id}
-                    style={{
-                      marginBottom: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: message.role === 'user' ? 'flex-end' : 'flex-start',
-                    }}
-                  >
-                    <div style={{
-                      maxWidth: '70%',
-                      backgroundColor: getMessageBackground(message.role),
-                      color: getMessageColor(message.role),
-                      padding: '12px 16px',
-                      borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      fontSize: '0.95rem',
-                      lineHeight: 1.5,
-                    }}>
-                      {message.content}
-                    </div>
-                    <div style={{
-                      fontSize: '0.75rem',
-                      color: '#888',
-                      marginTop: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      {message.role === 'admin' && (
-                        <span style={{
-                          width: '16px',
-                          height: '16px',
-                          backgroundColor: '#0066cc',
-                          borderRadius: '50%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '10px',
-                          color: '#fff',
-                        }}>
-                          👤
-                        </span>
-                      )}
-                      {getMessageLabel(message.role)} • {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
+                {isMobile ? 'Select a conversation from the list' : 'Select a conversation to view details'}
               </div>
-
-              {/* Admin Input */}
-              <div style={{
-                padding: '16px 20px',
-                borderTop: '1px solid #e0e0e0',
-                backgroundColor: '#fafafa',
-              }}>
-                <form onSubmit={handleSendMessage} style={{
-                  display: 'flex',
-                  gap: '12px',
-                }}>
-                  <input
-                    type="text"
-                    value={adminInput}
-                    onChange={(e) => setAdminInput(e.target.value)}
-                    placeholder="Type your response as KiWA Team..."
-                    style={{
-                      flex: 1,
-                      padding: '12px 16px',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '24px',
-                      fontSize: '0.95rem',
-                      outline: 'none',
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!adminInput.trim()}
-                    style={{
-                      padding: '12px 24px',
-                      backgroundColor: adminInput.trim() ? '#0066cc' : '#ccc',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '24px',
-                      fontSize: '0.95rem',
-                      fontWeight: 500,
-                      cursor: adminInput.trim() ? 'pointer' : 'default',
-                    }}
-                  >
-                    Send
-                  </button>
-                </form>
-              </div>
-            </>
-          ) : (
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#888',
-            }}>
-              Select a conversation to view details
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
