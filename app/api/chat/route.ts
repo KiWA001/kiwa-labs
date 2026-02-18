@@ -30,24 +30,40 @@ Start with: What would you like to build?
 If the user jumps straight to a question, answer it directly instead of forcing the opening.
 
 CONSULTATION FLOW (GUIDELINE, NOT A BLOCKER)
-Understand the idea
-Let the user explain
-Summarize simply to confirm understanding
-Clarify purpose
-Who is it for?
-What problem does it solve?
-MVP or existing business?
-What does success look like?
-Control scope
-Identify must-haves vs later features
-Encourage starting lean without pushing back aggressively
-Technology (high level only)
-Stack depends on goals, scale, cost, and maintainability
-Never lock into tools unless required
-Uncertainty handling
-Be careful and accurate
-Avoid guessing
-Explain trade-offs calmly
+
+Phase 1: Discovery (First 3-5 exchanges)
+- Understand the idea
+- Let the user explain
+- Ask about:
+  * What are you building? (product/service/app)
+  * Who is it for? (target audience)
+  * What problem does it solve?
+  * Is this an MVP or existing business?
+  * What does success look like?
+
+Phase 2: Scope & Requirements (Next 3-5 exchanges)
+- Identify must-haves vs later features
+- Ask about:
+  * Key features needed
+  * Timeline expectations
+  * Budget range (if they're comfortable sharing)
+  * Any specific technology preferences
+  * Existing assets (designs, content, branding)
+
+Phase 3: Human Handoff Trigger (After gathering sufficient info)
+Once you have gathered:
+- What they're building
+- Who it's for
+- Core features needed
+- Timeline/budget expectations
+- Any special requirements
+
+Then say something like:
+"Perfect! I've gathered the key details about your project. Based on what you've shared, this looks like an exciting opportunity for KiWA Labs. 
+
+At this point, I'd like to bring in our expert team to review everything we've discussed. Our senior developers and project leads will analyze your requirements in detail and provide a comprehensive proposal tailored specifically to your needs.
+
+Would you like me to connect you with the KiWA Labs team now? They'll reach out within 24 hours to schedule a detailed consultation."
 
 BUDGET AND PRICING
 You may give estimates if asked or if the user insists
@@ -72,11 +88,11 @@ Emphasize long-term stability and avoiding future problems
 Do not insult other developers
 Do not argue
 
-CLOSING
-When ready:
-Suggest moving to the KiWA Labs team for detailed review
-Do not collect payment
-Do not finalize anything
+REMEMBER
+Track the conversation flow
+Don't rush to handoff - gather sufficient info first
+Be conversational, not robotic
+Adjust your pace based on the user's engagement
 
 FINAL RULE
 Your job is not to impress.
@@ -84,11 +100,13 @@ Your job is to reduce risk, structure ideas, and protect the KiWA Labs standard.
 
 CRITICAL JSON FORMAT RULE:
 Your entire response must be ONLY a valid JSON object. Return ONLY this format:
-{"response":"Your message here with **bold** text","contextSummary":"Brief conversation summary"}`;
+{"response":"Your message here with **bold** text","contextSummary":"Brief conversation summary","readyForHandoff":false}
+
+The readyForHandoff field should be true ONLY when you have gathered sufficient information and are suggesting the human handoff.`;
 
 export async function POST(request: Request) {
   try {
-    const { message, contextSummary, recentMessages } = await request.json();
+    const { message, fullConversation, sessionId } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -97,22 +115,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build messages array with context
+    // Build messages array with full conversation history
     const messagesArray: Array<{ role: string; content: string }> = [
       { role: 'system', content: SYSTEM_PROMPT }
     ];
 
-    // Add context summary if exists
-    if (contextSummary) {
-      messagesArray.push({
-        role: 'system',
-        content: `Previous conversation context: ${contextSummary}`
-      });
-    }
-
-    // Add recent messages (last 2)
-    if (recentMessages && recentMessages.length > 0) {
-      messagesArray.push(...recentMessages.map((m: { role: string; content: string }) => ({
+    // Add full conversation history
+    if (fullConversation && fullConversation.length > 0) {
+      messagesArray.push(...fullConversation.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content
       })));
@@ -169,24 +179,29 @@ export async function POST(request: Request) {
       // If JSON parsing fails, extract text between quotes or use raw content
       const responseMatch = aiContent.match(/"response"\s*:\s*"([^"]+)"/);
       const summaryMatch = aiContent.match(/"contextSummary"\s*:\s*"([^"]+)"/);
+      const handoffMatch = aiContent.match(/"readyForHandoff"\s*:\s*(true|false)/);
       
       if (responseMatch) {
         parsedResponse = {
           response: responseMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'),
-          contextSummary: summaryMatch ? summaryMatch[1] : (contextSummary || '')
+          contextSummary: summaryMatch ? summaryMatch[1] : '',
+          readyForHandoff: handoffMatch ? handoffMatch[1] === 'true' : false
         };
       } else {
         // Fallback: return raw content but clean it up
         parsedResponse = {
           response: aiContent.replace(/\{[\s\S]*\}/g, '').trim() || aiContent,
-          contextSummary: contextSummary || ''
+          contextSummary: '',
+          readyForHandoff: false
         };
       }
     }
 
     return NextResponse.json({
       response: parsedResponse.response,
-      contextSummary: parsedResponse.contextSummary || contextSummary || ''
+      contextSummary: parsedResponse.contextSummary || '',
+      readyForHandoff: parsedResponse.readyForHandoff || false,
+      sessionId: sessionId || null
     });
   } catch (error) {
     console.error('Chat API error:', error);

@@ -6,8 +6,16 @@ import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'admin';
   content: string;
+  timestamp?: string;
+}
+
+interface ContactInfo {
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  preferredContact?: string;
 }
 
 interface AIChatProps {
@@ -18,14 +26,31 @@ export default function AIChat({ onClose }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [contextSummary, setContextSummary] = useState('');
+  const [sessionId, setSessionId] = useState<string>('');
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({
+    email: '',
+    phone: '',
+    whatsapp: '',
+    preferredContact: 'email'
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Generate or retrieve session ID
+  useEffect(() => {
+    let storedSessionId = localStorage.getItem('kai-session-id');
+    if (!storedSessionId) {
+      storedSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('kai-session-id', storedSessionId);
+    }
+    setSessionId(storedSessionId);
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
     const savedMessages = localStorage.getItem('kai-messages');
-    const savedContext = localStorage.getItem('kai-context');
     
     if (savedMessages) {
       try {
@@ -40,24 +65,67 @@ export default function AIChat({ onClose }: AIChatProps) {
         id: 'welcome',
         role: 'assistant',
         content: "What would you like to build?",
+        timestamp: new Date().toISOString()
       }]);
-    }
-    
-    if (savedContext) {
-      setContextSummary(savedContext);
     }
   }, []);
 
-  // Save to localStorage whenever messages or context changes
+  // Save to localStorage whenever messages change
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem('kai-messages', JSON.stringify(messages));
+      // Also save to Supabase
+      saveToSupabase(messages);
     }
   }, [messages]);
 
+  // Poll for admin messages every 3 seconds
   useEffect(() => {
-    localStorage.setItem('kai-context', contextSummary);
-  }, [contextSummary]);
+    if (!sessionId) return;
+    
+    const pollForAdminMessages = async () => {
+      try {
+        const response = await fetch(`/api/chat/poll?sessionId=${sessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.adminMessages && data.adminMessages.length > 0) {
+            // Add admin messages to chat
+            setMessages(prev => {
+              const existingIds = new Set(prev.map(m => m.id));
+              const newMessages = data.adminMessages.filter((m: Message) => !existingIds.has(m.id));
+              if (newMessages.length > 0) {
+                return [...prev, ...newMessages];
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll for admin messages:', error);
+      }
+    };
+
+    const interval = setInterval(pollForAdminMessages, 3000);
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  // Save conversation to Supabase
+  const saveToSupabase = async (msgs: Message[], contact?: ContactInfo) => {
+    try {
+      await fetch('/api/chat/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          messages: msgs,
+          timestamp: new Date().toISOString(),
+          contactInfo: contact || null
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save to Supabase:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,21 +134,25 @@ export default function AIChat({ onClose }: AIChatProps) {
   // Auto-scroll only when user sends a message, not when AI responds
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.role === 'user') {
+    if (lastMessage?.role === 'user' || lastMessage?.role === 'admin') {
       scrollToBottom();
     }
   }, [messages]);
 
   const handleClearChat = () => {
     if (confirm('Are you sure you want to clear the chat history?')) {
-      setMessages([{
+      const welcomeMessage = {
         id: 'welcome',
-        role: 'assistant',
+        role: 'assistant' as const,
         content: "What would you like to build?",
-      }]);
-      setContextSummary('');
+        timestamp: new Date().toISOString()
+      };
+      setMessages([welcomeMessage]);
+      setShowHandoff(false);
+      setShowContactForm(false);
       localStorage.removeItem('kai-messages');
-      localStorage.removeItem('kai-context');
+      // Clear from Supabase too
+      saveToSupabase([welcomeMessage]);
     }
   };
 
@@ -93,6 +165,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       id: Date.now().toString(),
       role: 'user',
       content: input.trim(),
+      timestamp: new Date().toISOString()
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -100,16 +173,19 @@ export default function AIChat({ onClose }: AIChatProps) {
     setIsLoading(true);
 
     try {
-      // Get last 2 messages for context
-      const recentMessages = messages.slice(-2);
+      // Send full conversation history
+      const fullConversation = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
       
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: input.trim(),
-          contextSummary,
-          recentMessages: recentMessages.map(m => ({ role: m.role, content: m.content }))
+          fullConversation,
+          sessionId
         }),
       });
 
@@ -120,19 +196,21 @@ export default function AIChat({ onClose }: AIChatProps) {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: data.response,
+          timestamp: new Date().toISOString()
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
         
-        // Update context summary if provided
-        if (data.contextSummary) {
-          setContextSummary(data.contextSummary);
+        // Show handoff option if AI suggests it
+        if (data.readyForHandoff) {
+          setShowHandoff(true);
         }
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           content: 'I apologize, but I encountered an issue. Please try again.',
+          timestamp: new Date().toISOString()
         };
         setMessages((prev) => [...prev, errorMessage]);
       }
@@ -141,6 +219,7 @@ export default function AIChat({ onClose }: AIChatProps) {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: 'I apologize, but I encountered an issue. Please try again.',
+        timestamp: new Date().toISOString()
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -152,6 +231,48 @@ export default function AIChat({ onClose }: AIChatProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    }
+  };
+
+  const initiateHandoff = () => {
+    setShowHandoff(false);
+    setShowContactForm(true);
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate at least one contact method
+    if (!contactInfo.email && !contactInfo.phone && !contactInfo.whatsapp) {
+      alert('Please provide at least one contact method');
+      return;
+    }
+
+    const handoffMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: `Thank you! I've collected your contact information. Our team will reach out to you within 24 hours using your preferred contact method (${contactInfo.preferredContact}).\n\nWe look forward to discussing your project in detail!`,
+      timestamp: new Date().toISOString()
+    };
+    
+    setMessages((prev) => [...prev, handoffMessage]);
+    setShowContactForm(false);
+    
+    // Save to Supabase with contact info
+    try {
+      await fetch('/api/chat/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          messages: [...messages, handoffMessage],
+          timestamp: new Date().toISOString(),
+          status: 'handoff_requested',
+          contactInfo
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save handoff:', error);
     }
   };
 
@@ -184,6 +305,24 @@ export default function AIChat({ onClose }: AIChatProps) {
       window.removeEventListener('edge-swipe-right', preventSwipeBack, true);
     };
   }, []);
+
+  const getMessageBackground = (role: string) => {
+    switch (role) {
+      case 'user': return '#000000';
+      case 'assistant': return '#f0f0f0';
+      case 'admin': return '#0066cc'; // Blue for admin
+      default: return '#f0f0f0';
+    }
+  };
+
+  const getMessageColor = (role: string) => {
+    switch (role) {
+      case 'user': return '#ffffff';
+      case 'assistant': return '#000000';
+      case 'admin': return '#ffffff';
+      default: return '#000000';
+    }
+  };
 
   return (
     <div
@@ -276,106 +415,241 @@ export default function AIChat({ onClose }: AIChatProps) {
           {messages.map((message, index) => (
             <motion.div
               key={message.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
               style={{
                 alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
+                maxWidth: '80%',
+                backgroundColor: getMessageBackground(message.role),
+                color: getMessageColor(message.role),
                 padding: '12px 16px',
-                borderRadius: '18px',
-                backgroundColor: message.role === 'user' ? '#000000' : '#f0f0f0',
-                color: message.role === 'user' ? '#ffffff' : '#000000',
-                fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
-                fontSize: '0.95rem',
-                lineHeight: 1.5,
-                wordWrap: 'break-word',
-                overflowWrap: 'break-word',
-                whiteSpace: 'pre-wrap',
-                marginTop: index === 0 && message.id === 'welcome' ? '20px' : '0',
+                borderRadius: message.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                wordBreak: 'break-word',
               }}
             >
-              {message.role === 'assistant' ? (
-                <div 
-                  className="markdown-content"
-                  style={{
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <ReactMarkdown
-                    components={{
-                      strong: ({ children }) => (
-                        <strong style={{ fontWeight: 600, display: 'inline' }}>
-                          {children}
-                        </strong>
-                      ),
-                      code: ({ children }) => (
-                        <code 
-                          style={{ 
-                            backgroundColor: 'rgba(0,0,0,0.1)', 
-                            padding: '2px 6px', 
-                            borderRadius: '4px',
-                            fontFamily: 'monospace',
-                            fontSize: '0.85em',
-                            display: 'inline',
-                            wordBreak: 'break-all',
-                          }}
-                        >
-                          {children}
-                        </code>
-                      ),
-                      p: ({ children }) => (
-                        <p style={{ margin: 0, display: 'inline' }}>{children}</p>
-                      ),
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
+              {message.role === 'admin' && (
+                <div style={{
+                  fontSize: '0.75rem',
+                  opacity: 0.8,
+                  marginBottom: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}>
+                  <span>👤</span> KiWA Team
                 </div>
-              ) : (
-                <span style={{ wordBreak: 'break-word' }}>{message.content}</span>
               )}
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.5 }}>{children}</p>,
+                  strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </motion.div>
           ))}
         </AnimatePresence>
-        
+
         {isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             style={{
               alignSelf: 'flex-start',
-              padding: '12px 16px',
-              borderRadius: '18px',
               backgroundColor: '#f0f0f0',
+              padding: '16px 20px',
+              borderRadius: '20px 20px 20px 4px',
               display: 'flex',
               gap: '4px',
+              alignItems: 'center',
             }}
           >
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: '#999',
-              animation: 'bounce 1.4s infinite ease-in-out both',
-            }} />
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: '#999',
-              animation: 'bounce 1.4s infinite ease-in-out both 0.16s',
-            }} />
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: '#999',
-              animation: 'bounce 1.4s infinite ease-in-out both 0.32s',
-            }} />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#999',
+                borderRadius: '50%',
+                animation: 'bounce 1.4s infinite ease-in-out both',
+                animationDelay: '0s',
+              }}
+            />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#999',
+                borderRadius: '50%',
+                animation: 'bounce 1.4s infinite ease-in-out both',
+                animationDelay: '0.2s',
+              }}
+            />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#999',
+                borderRadius: '50%',
+                animation: 'bounce 1.4s infinite ease-in-out both',
+                animationDelay: '0.4s',
+              }}
+            />
           </motion.div>
         )}
+
+        {/* Handoff Button */}
+        {showHandoff && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              alignSelf: 'center',
+              marginTop: '20px',
+              padding: '16px 24px',
+              backgroundColor: '#000000',
+              color: '#ffffff',
+              borderRadius: '30px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              textAlign: 'center',
+            }}
+            onClick={initiateHandoff}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Connect me with KiWA Labs Team →
+          </motion.div>
+        )}
+
+        {/* Contact Info Form */}
+        {showContactForm && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              alignSelf: 'center',
+              marginTop: '20px',
+              padding: '24px',
+              backgroundColor: '#f8f8f8',
+              borderRadius: '16px',
+              maxWidth: '400px',
+              width: '100%',
+              border: '1px solid #e0e0e0',
+            }}
+          >
+            <h3 style={{
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              marginBottom: '16px',
+              textAlign: 'center',
+            }}>
+              How can we reach you?
+            </h3>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#666',
+              marginBottom: '20px',
+              textAlign: 'center',
+            }}>
+              Please provide your contact details so our team can follow up with you.
+            </p>
+            <form onSubmit={handleContactSubmit}>
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={contactInfo.email}
+                  onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    marginBottom: '8px',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="tel"
+                  placeholder="Phone number"
+                  value={contactInfo.phone}
+                  onChange={(e) => setContactInfo({...contactInfo, phone: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    marginBottom: '8px',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="WhatsApp number (optional)"
+                  value={contactInfo.whatsapp}
+                  onChange={(e) => setContactInfo({...contactInfo, whatsapp: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    marginBottom: '16px',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  fontSize: '0.85rem',
+                  color: '#666',
+                  display: 'block',
+                  marginBottom: '8px',
+                }}>
+                  Preferred contact method:
+                </label>
+                <select
+                  value={contactInfo.preferredContact}
+                  onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="email">Email</option>
+                  <option value="phone">Phone Call</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#000',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Submit
+              </button>
+            </form>
+          </motion.div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
