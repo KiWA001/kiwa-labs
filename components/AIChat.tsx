@@ -26,19 +26,36 @@ interface AIChatProps {
 function ContactFormContent({ 
   contactInfo, 
   setContactInfo, 
-  onSubmit 
+  onSubmit,
+  onMethodSelect
 }: { 
   contactInfo: ContactInfo; 
   setContactInfo: (info: ContactInfo) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onMethodSelect: (method: string) => void;
 }) {
   const [error, setError] = useState('');
+
+  const handleMethodChange = (method: string) => {
+    setError('');
+    // If they select "Chat with a human here", trigger immediate save
+    if (method === 'continue_chat') {
+      onMethodSelect(method);
+    } else {
+      setContactInfo({...contactInfo, preferredContact: method});
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!contactInfo.preferredContact || contactInfo.preferredContact === '') {
       setError('Please select a contact method first');
+      return;
+    }
+    
+    // Don't submit if they selected "Chat with a human here" - it's already handled
+    if (contactInfo.preferredContact === 'continue_chat') {
       return;
     }
     
@@ -73,7 +90,7 @@ function ContactFormContent({
               name="contactMethod"
               value="email"
               checked={contactInfo.preferredContact === 'email'}
-              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              onChange={(e) => handleMethodChange(e.target.value)}
               style={{ marginRight: '10px' }}
             />
             <span style={{ fontSize: '0.9rem' }}>📧 Email</span>
@@ -92,7 +109,7 @@ function ContactFormContent({
               name="contactMethod"
               value="whatsapp"
               checked={contactInfo.preferredContact === 'whatsapp'}
-              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              onChange={(e) => handleMethodChange(e.target.value)}
               style={{ marginRight: '10px' }}
             />
             <span style={{ fontSize: '0.9rem' }}>💬 WhatsApp</span>
@@ -111,10 +128,10 @@ function ContactFormContent({
               name="contactMethod"
               value="continue_chat"
               checked={contactInfo.preferredContact === 'continue_chat'}
-              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              onChange={(e) => handleMethodChange(e.target.value)}
               style={{ marginRight: '10px' }}
             />
-            <span style={{ fontSize: '0.9rem' }}>💭 Continue in this chat</span>
+            <span style={{ fontSize: '0.9rem' }}>💭 Chat with a human here</span>
           </label>
         </div>
         {error && (
@@ -403,19 +420,66 @@ export default function AIChat({ onClose }: AIChatProps) {
     setShowContactForm(true);
   };
 
+  const handleContactMethodSelect = async (method: string) => {
+    const newContactInfo = { ...contactInfo, preferredContact: method };
+    setContactInfo(newContactInfo);
+    
+    // If they chose "Chat with a human here", proceed immediately
+    if (method === 'continue_chat') {
+      const handoffMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "Perfect! A member of our KiWA Labs team will join this chat shortly to assist you. Please continue chatting here and we'll respond as soon as possible.",
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages((prev) => [...prev, handoffMessage]);
+      setShowContactForm(false);
+      
+      // Save to Supabase immediately with the contact preference
+      try {
+        await fetch('/api/chat/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            messages: [...messages, handoffMessage],
+            timestamp: new Date().toISOString(),
+            status: 'handoff_requested',
+            contactInfo: { ...newContactInfo, preferredContact: 'Chat with a human here' }
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save handoff:', error);
+      }
+    }
+  };
+
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate at least one contact method
-    if (!contactInfo.email && !contactInfo.phone && !contactInfo.whatsapp) {
-      alert('Please provide at least one contact method');
+    // For email or whatsapp, require the contact details
+    if (contactInfo.preferredContact === 'email' && !contactInfo.email) {
+      alert('Please provide your email address');
       return;
+    }
+    
+    if (contactInfo.preferredContact === 'whatsapp' && !contactInfo.whatsapp) {
+      alert('Please provide your WhatsApp number');
+      return;
+    }
+
+    let messageContent = '';
+    if (contactInfo.preferredContact === 'email') {
+      messageContent = `Thank you! I've collected your contact information. Our team will reach out to you via email at ${contactInfo.email} within 24 hours.\n\nWe look forward to discussing your project in detail!`;
+    } else if (contactInfo.preferredContact === 'whatsapp') {
+      messageContent = `Thank you! I've collected your contact information. Our team will reach out to you via WhatsApp at ${contactInfo.whatsapp} within 24 hours.\n\nWe look forward to discussing your project in detail!`;
     }
 
     const handoffMessage: Message = {
       id: Date.now().toString(),
       role: 'assistant',
-      content: `Thank you! I've collected your contact information. Our team will reach out to you within 24 hours using your preferred contact method (${contactInfo.preferredContact}).\n\nWe look forward to discussing your project in detail!`,
+      content: messageContent,
       timestamp: new Date().toISOString()
     };
     
@@ -727,6 +791,7 @@ export default function AIChat({ onClose }: AIChatProps) {
               contactInfo={contactInfo}
               setContactInfo={setContactInfo}
               onSubmit={handleContactSubmit}
+              onMethodSelect={handleContactMethodSelect}
             />
           </motion.div>
         )}
