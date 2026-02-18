@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { createClient } from '@supabase/supabase-js';
 
 interface ChatMessage {
   id: string;
@@ -30,6 +31,11 @@ interface ChatSession {
     preferredContact?: string;
   };
 }
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function AdminPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -64,7 +70,6 @@ export default function AdminPage() {
         try {
           const stored = localStorage.getItem('admin-passkey-registered');
           if (stored) {
-            // Try to authenticate with passkey
             const credential = await navigator.credentials.get({
               publicKey: {
                 challenge: new Uint8Array(32),
@@ -86,17 +91,99 @@ export default function AdminPage() {
     checkPasskey();
   }, []);
 
+  // Initial fetch and realtime subscription
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchSessions();
-      const interval = setInterval(fetchSessions, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
+    if (!isAuthenticated) return;
+
+    // Initial fetch
+    fetchSessions();
+
+    // Set up realtime subscription
+    const subscription = supabase
+      .channel('chat_sessions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_sessions'
+        },
+        (payload) => {
+          console.log('Realtime update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            // New session added
+            const newSession = normalizeSession(payload.new as ChatSession);
+            setSessions(prev => [newSession, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            // Session updated
+            const updatedSession = normalizeSession(payload.new as ChatSession);
+            setSessions(prev => 
+              prev.map(s => s.sessionId === updatedSession.sessionId ? updatedSession : s)
+            );
+            
+            // If this is the selected session, update it
+            if (selectedSession?.sessionId === updatedSession.sessionId) {
+              setSelectedSession(updatedSession);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            // Session deleted
+            setSessions(prev => 
+              prev.filter(s => s.sessionId !== (payload.old as ChatSession).session_id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [isAuthenticated, selectedSession?.sessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedSession?.messages]);
+
+  const normalizeSession = (session: ChatSession): ChatSession => {
+    return {
+      ...session,
+      sessionId: session.session_id || session.sessionId,
+      lastUpdated: session.last_updated || session.lastUpdated,
+      contactInfo: session.contact_info || session.contactInfo
+    };
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .order('last_updated', { ascending: false });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return;
+      }
+
+      const normalizedSessions = (data || []).map(normalizeSession);
+      setSessions(normalizedSessions);
+      
+      // Update selected session if it exists
+      if (selectedSession) {
+        const updated = normalizedSessions.find((s: ChatSession) => 
+          s.sessionId === selectedSession.sessionId
+        );
+        if (updated) {
+          setSelectedSession(updated);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const registerPasskey = async () => {
     if (typeof window === 'undefined' || !window.PublicKeyCredential) {
@@ -127,7 +214,7 @@ export default function AdminPage() {
 
       if (credential) {
         localStorage.setItem('admin-passkey-registered', 'true');
-        alert('Passkey registered successfully! You can now use it to log in.');
+        alert('Passkey registered successfully!');
       }
     } catch (e) {
       console.error('Passkey registration failed:', e);
@@ -135,42 +222,11 @@ export default function AdminPage() {
     }
   };
 
-  const fetchSessions = async () => {
-    try {
-      const response = await fetch('/api/admin/sessions');
-      if (response.ok) {
-        const data = await response.json();
-        // Normalize the data to handle both snake_case and camelCase
-        const normalizedSessions = (data.sessions || []).map((s: ChatSession) => ({
-          ...s,
-          sessionId: s.session_id || s.sessionId,
-          lastUpdated: s.last_updated || s.lastUpdated,
-          contactInfo: s.contact_info || s.contactInfo
-        }));
-        setSessions(normalizedSessions);
-        
-        if (selectedSession) {
-          const updated = normalizedSessions.find((s: ChatSession) => 
-            s.sessionId === selectedSession.sessionId
-          );
-          if (updated) {
-            setSelectedSession(updated);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
-      // Optionally register passkey after successful login
-      if (window.confirm('Would you like to set up a passkey for faster login next time?')) {
+      if (window.confirm('Set up passkey for faster login?')) {
         registerPasskey();
       }
     } else {
@@ -189,27 +245,38 @@ export default function AdminPage() {
       timestamp: new Date().toISOString()
     };
 
+    // Optimistically update UI
+    const updatedMessages = [...(selectedSession.messages || []), newMessage];
     const updatedSession = {
       ...selectedSession,
-      messages: [...(selectedSession.messages || []), newMessage],
+      messages: updatedMessages,
       lastUpdated: new Date().toISOString()
     };
+    
     setSelectedSession(updatedSession);
     setAdminInput('');
 
+    // Update sessions array to keep the message
+    setSessions(prev => 
+      prev.map(s => s.sessionId === selectedSession.sessionId ? updatedSession : s)
+    );
+
+    // Save to Supabase
     try {
-      await fetch('/api/admin/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: selectedSession.sessionId,
-          message: newMessage
-        }),
-      });
-      
-      fetchSessions();
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({
+          messages: updatedMessages,
+          last_updated: new Date().toISOString()
+        })
+        .eq('session_id', selectedSession.sessionId);
+
+      if (error) {
+        console.error('Failed to save message:', error);
+        alert('Failed to send message');
+      }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('Send message error:', error);
     }
   };
 
