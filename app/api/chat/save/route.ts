@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(request: Request) {
   try {
-    const { sessionId, messages, timestamp, status } = await request.json();
+    const { sessionId, messages, timestamp, status, contactInfo } = await request.json();
 
     if (!sessionId || !messages) {
       return NextResponse.json(
@@ -11,21 +18,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Replace with actual Supabase integration
-    // For now, we'll store in a temporary JSON file or memory
-    // Once you provide Supabase credentials, we'll update this
-    
-    console.log('Saving conversation:', {
-      sessionId,
-      messageCount: messages.length,
-      timestamp,
-      status
-    });
+    // Upsert the chat session
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .upsert({
+        session_id: sessionId,
+        messages: messages,
+        contact_info: contactInfo || null,
+        status: status || 'active',
+        last_updated: timestamp || new Date().toISOString(),
+      }, {
+        onConflict: 'session_id'
+      })
+      .select();
 
-    // Placeholder response - will be replaced with actual Supabase save
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: 'Failed to save conversation' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Conversation saved (placeholder)' 
+      data 
     });
   } catch (error) {
     console.error('Save chat error:', error);

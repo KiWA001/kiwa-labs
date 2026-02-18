@@ -12,18 +12,15 @@ export async function POST(request: Request) {
     }
 
     // TODO: Replace with actual Supabase integration
-    // For now, we'll store in a temporary way
-    // Once you provide Supabase credentials, we'll update this
+    // For now, return success
     
     console.log('Admin sending message:', {
       sessionId,
       message
     });
 
-    // Placeholder response
     return NextResponse.json({ 
-      success: true, 
-      message: 'Message sent (placeholder)' 
+      success: true
     });
   } catch (error) {
     console.error('Send message error:', error);

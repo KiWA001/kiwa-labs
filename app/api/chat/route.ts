@@ -17,6 +17,8 @@ Helpful, never defensive or salesy
 Do not overwhelm users
 Do not frustrate or block the conversation
 Keep responses brief and to the point unless the user specifically asks for detailed explanations
+Use proper formatting with line breaks for readability
+Do NOT use numbered lists or bullet points that extend beyond the container width
 
 IMPORTANT FLEXIBILITY RULES
 Do not introduce information the user did not ask for
@@ -24,6 +26,30 @@ You may answer questions directly if the user asks
 You may provide helpful context if it clearly helps the user
 If the user insists on budget or timelines, you may give clear estimates and state they are estimates
 Your goal is to help, not to slow the user down unnecessarily
+
+AUTOMATIC HANDOFF TRIGGER - CRITICAL
+If the user says ANYTHING similar to these phrases, immediately set readyForHandoff to true:
+- "talk to a human"
+- "chat with admin" 
+- "connect me with support"
+- "speak to someone"
+- "customer support"
+- "technical support"
+- "talk to a person"
+- "human agent"
+- "real person"
+- "support team"
+- "help desk"
+- "contact support"
+- "need help from team"
+- "escalate this"
+- "manager"
+- "expert"
+- "specialist"
+- Any variation of wanting human assistance
+
+When triggered, respond with:
+"I'll connect you with our team right away. They'll be able to assist you better with this."
 
 OPENING (DEFAULT)
 Start with: What would you like to build?
@@ -50,7 +76,7 @@ Phase 2: Scope & Requirements (Next 3-5 exchanges)
   * Any specific technology preferences
   * Existing assets (designs, content, branding)
 
-Phase 3: Human Handoff Trigger (After gathering sufficient info)
+Phase 3: Human Handoff Trigger (After gathering sufficient info OR if user requests human)
 Once you have gathered:
 - What they're building
 - Who it's for
@@ -93,6 +119,8 @@ Track the conversation flow
 Don't rush to handoff - gather sufficient info first
 Be conversational, not robotic
 Adjust your pace based on the user's engagement
+When using lists, keep them short and ensure text wraps properly
+Use line breaks between paragraphs for readability
 
 FINAL RULE
 Your job is not to impress.
@@ -102,7 +130,44 @@ CRITICAL JSON FORMAT RULE:
 Your entire response must be ONLY a valid JSON object. Return ONLY this format:
 {"response":"Your message here with **bold** text","contextSummary":"Brief conversation summary","readyForHandoff":false}
 
-The readyForHandoff field should be true ONLY when you have gathered sufficient information and are suggesting the human handoff.`;
+The readyForHandoff field should be true ONLY when you have gathered sufficient information OR when the user explicitly requests human assistance.`;
+
+// Keywords that trigger automatic handoff
+const HANDOFF_KEYWORDS = [
+  'human', 'admin', 'support', 'person', 'agent', 'manager', 
+  'expert', 'specialist', 'team', 'help desk', 'escalate',
+  'talk to', 'speak to', 'chat with', 'connect with', 'contact',
+  'real person', 'human agent', 'customer service', 'technical support',
+  'not a bot', 'live agent', 'representative'
+];
+
+function checkForHandoffIntent(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return HANDOFF_KEYWORDS.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
+}
+
+// Function to summarize older messages if over 50
+function summarizeConversation(messages: Array<{role: string, content: string}>): Array<{role: string, content: string}> {
+  const MAX_MESSAGES = 50;
+  
+  if (messages.length <= MAX_MESSAGES) {
+    return messages;
+  }
+  
+  // Keep first 5 messages and last 45 messages
+  const firstMessages = messages.slice(0, 5);
+  const lastMessages = messages.slice(-45);
+  
+  // Create summary of middle messages
+  const middleMessages = messages.slice(5, -45);
+  const summaryContent = `[Previous ${middleMessages.length} messages summarized: ${middleMessages.map(m => m.content.substring(0, 50)).join(' | ')}...]`;
+  
+  return [
+    ...firstMessages,
+    { role: 'system', content: summaryContent },
+    ...lastMessages
+  ];
+}
 
 export async function POST(request: Request) {
   try {
@@ -115,14 +180,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check for automatic handoff trigger
+    const autoHandoff = checkForHandoffIntent(message);
+
+    // Process conversation history (limit to 50 messages with summarization)
+    let processedConversation = fullConversation || [];
+    if (processedConversation.length > 50) {
+      processedConversation = summarizeConversation(processedConversation);
+    }
+
     // Build messages array with full conversation history
     const messagesArray: Array<{ role: string; content: string }> = [
       { role: 'system', content: SYSTEM_PROMPT }
     ];
 
-    // Add full conversation history
-    if (fullConversation && fullConversation.length > 0) {
-      messagesArray.push(...fullConversation.map((m: { role: string; content: string }) => ({
+    // Add processed conversation history
+    if (processedConversation && processedConversation.length > 0) {
+      messagesArray.push(...processedConversation.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content
       })));
@@ -192,8 +266,16 @@ export async function POST(request: Request) {
         parsedResponse = {
           response: aiContent.replace(/\{[\s\S]*\}/g, '').trim() || aiContent,
           contextSummary: '',
-          readyForHandoff: false
+          readyForHandoff: autoHandoff // Use auto-detection if parsing fails
         };
+      }
+    }
+
+    // Override with auto-detection if keywords found
+    if (autoHandoff) {
+      parsedResponse.readyForHandoff = true;
+      if (!parsedResponse.response.includes('connect you with our team')) {
+        parsedResponse.response = "I'll connect you with our team right away. They'll be able to assist you better with this.";
       }
     }
 
@@ -201,7 +283,8 @@ export async function POST(request: Request) {
       response: parsedResponse.response,
       contextSummary: parsedResponse.contextSummary || '',
       readyForHandoff: parsedResponse.readyForHandoff || false,
-      sessionId: sessionId || null
+      sessionId: sessionId || null,
+      messageCount: processedConversation.length
     });
   } catch (error) {
     console.error('Chat API error:', error);

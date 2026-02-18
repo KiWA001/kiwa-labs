@@ -22,6 +22,170 @@ interface AIChatProps {
   onClose: () => void;
 }
 
+// Contact Form Component
+function ContactFormContent({ 
+  contactInfo, 
+  setContactInfo, 
+  onSubmit 
+}: { 
+  contactInfo: ContactInfo; 
+  setContactInfo: (info: ContactInfo) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!contactInfo.preferredContact || contactInfo.preferredContact === '') {
+      setError('Please select a contact method first');
+      return;
+    }
+    
+    setError('');
+    onSubmit(e);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          fontSize: '0.9rem',
+          fontWeight: 500,
+          color: '#333',
+          display: 'block',
+          marginBottom: '12px',
+        }}>
+          How would you like us to reach you? *
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px',
+            border: contactInfo.preferredContact === 'email' ? '2px solid #000' : '1px solid #ddd',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            backgroundColor: contactInfo.preferredContact === 'email' ? '#f0f0f0' : '#fff',
+          }}>
+            <input
+              type="radio"
+              name="contactMethod"
+              value="email"
+              checked={contactInfo.preferredContact === 'email'}
+              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              style={{ marginRight: '10px' }}
+            />
+            <span style={{ fontSize: '0.9rem' }}>📧 Email</span>
+          </label>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px',
+            border: contactInfo.preferredContact === 'whatsapp' ? '2px solid #000' : '1px solid #ddd',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            backgroundColor: contactInfo.preferredContact === 'whatsapp' ? '#f0f0f0' : '#fff',
+          }}>
+            <input
+              type="radio"
+              name="contactMethod"
+              value="whatsapp"
+              checked={contactInfo.preferredContact === 'whatsapp'}
+              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              style={{ marginRight: '10px' }}
+            />
+            <span style={{ fontSize: '0.9rem' }}>💬 WhatsApp</span>
+          </label>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px',
+            border: contactInfo.preferredContact === 'continue_chat' ? '2px solid #000' : '1px solid #ddd',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            backgroundColor: contactInfo.preferredContact === 'continue_chat' ? '#f0f0f0' : '#fff',
+          }}>
+            <input
+              type="radio"
+              name="contactMethod"
+              value="continue_chat"
+              checked={contactInfo.preferredContact === 'continue_chat'}
+              onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
+              style={{ marginRight: '10px' }}
+            />
+            <span style={{ fontSize: '0.9rem' }}>💭 Continue in this chat</span>
+          </label>
+        </div>
+        {error && (
+          <div style={{
+            color: '#dc2626',
+            fontSize: '0.85rem',
+            marginTop: '8px',
+          }}>
+            {error}
+          </div>
+        )}
+      </div>
+
+      {contactInfo.preferredContact === 'email' && (
+        <div style={{ marginBottom: '16px' }}>
+          <input
+            type="email"
+            placeholder="Your email address *"
+            value={contactInfo.email}
+            onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+            }}
+            required
+          />
+        </div>
+      )}
+
+      {contactInfo.preferredContact === 'whatsapp' && (
+        <div style={{ marginBottom: '16px' }}>
+          <input
+            type="tel"
+            placeholder="Your WhatsApp number *"
+            value={contactInfo.whatsapp}
+            onChange={(e) => setContactInfo({...contactInfo, whatsapp: e.target.value})}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+            }}
+            required
+          />
+        </div>
+      )}
+
+      <button
+        type="submit"
+        style={{
+          width: '100%',
+          padding: '14px',
+          backgroundColor: '#000',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '0.95rem',
+          fontWeight: 500,
+          cursor: 'pointer',
+        }}
+      >
+        Submit
+      </button>
+    </form>
+  );
+}
+
 export default function AIChat({ onClose }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -443,8 +607,11 @@ export default function AIChat({ onClose }: AIChatProps) {
               )}
               <ReactMarkdown
                 components={{
-                  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.5 }}>{children}</p>,
+                  p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.5, wordWrap: 'break-word' }}>{children}</p>,
                   strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                  ol: ({ children }) => <ol style={{ margin: '8px 0', paddingLeft: '20px', lineHeight: 1.6 }}>{children}</ol>,
+                  ul: ({ children }) => <ul style={{ margin: '8px 0', paddingLeft: '20px', lineHeight: 1.6 }}>{children}</ul>,
+                  li: ({ children }) => <li style={{ marginBottom: '4px' }}>{children}</li>,
                 }}
               >
                 {message.content}
@@ -546,7 +713,7 @@ export default function AIChat({ onClose }: AIChatProps) {
               marginBottom: '16px',
               textAlign: 'center',
             }}>
-              How can we reach you?
+              How should we reach you?
             </h3>
             <p style={{
               fontSize: '0.9rem',
@@ -554,99 +721,13 @@ export default function AIChat({ onClose }: AIChatProps) {
               marginBottom: '20px',
               textAlign: 'center',
             }}>
-              Please provide your contact details so our team can follow up with you.
+              Choose your preferred contact method and provide your details.
             </p>
-            <form onSubmit={handleContactSubmit}>
-              <div style={{ marginBottom: '12px' }}>
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  value={contactInfo.email}
-                  onChange={(e) => setContactInfo({...contactInfo, email: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    marginBottom: '8px',
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '12px' }}>
-                <input
-                  type="tel"
-                  placeholder="Phone number"
-                  value={contactInfo.phone}
-                  onChange={(e) => setContactInfo({...contactInfo, phone: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    marginBottom: '8px',
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  placeholder="WhatsApp number (optional)"
-                  value={contactInfo.whatsapp}
-                  onChange={(e) => setContactInfo({...contactInfo, whatsapp: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    marginBottom: '16px',
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  fontSize: '0.85rem',
-                  color: '#666',
-                  display: 'block',
-                  marginBottom: '8px',
-                }}>
-                  Preferred contact method:
-                </label>
-                <select
-                  value={contactInfo.preferredContact}
-                  onChange={(e) => setContactInfo({...contactInfo, preferredContact: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  <option value="email">Email</option>
-                  <option value="phone">Phone Call</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#000',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Submit
-              </button>
-            </form>
+            <ContactFormContent 
+              contactInfo={contactInfo}
+              setContactInfo={setContactInfo}
+              onSubmit={handleContactSubmit}
+            />
           </motion.div>
         )}
 
