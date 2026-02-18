@@ -26,24 +26,17 @@ interface AIChatProps {
 function ContactFormContent({ 
   contactInfo, 
   setContactInfo, 
-  onSubmit,
-  onMethodSelect
+  onSubmit
 }: { 
   contactInfo: ContactInfo; 
   setContactInfo: (info: ContactInfo) => void;
   onSubmit: (e: React.FormEvent) => void;
-  onMethodSelect: (method: string) => void;
 }) {
   const [error, setError] = useState('');
 
   const handleMethodChange = (method: string) => {
     setError('');
-    // If they select "Chat with a human here", trigger immediate save
-    if (method === 'continue_chat') {
-      onMethodSelect(method);
-    } else {
-      setContactInfo({...contactInfo, preferredContact: method});
-    }
+    setContactInfo({...contactInfo, preferredContact: method});
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,11 +44,6 @@ function ContactFormContent({
     
     if (!contactInfo.preferredContact || contactInfo.preferredContact === '') {
       setError('Please select a contact method first');
-      return;
-    }
-    
-    // Don't submit if they selected "Chat with a human here" - it's already handled
-    if (contactInfo.preferredContact === 'continue_chat') {
       return;
     }
     
@@ -216,6 +204,7 @@ export default function AIChat({ onClose }: AIChatProps) {
     whatsapp: '',
     preferredContact: 'email'
   });
+  const [isWaitingForHuman, setIsWaitingForHuman] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -331,6 +320,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       setMessages([welcomeMessage]);
       setShowHandoff(false);
       setShowContactForm(false);
+      setIsWaitingForHuman(false); // Reset waiting for human
       localStorage.removeItem('kai-messages');
       // Clear from Supabase too
       saveToSupabase([welcomeMessage]);
@@ -351,6 +341,14 @@ export default function AIChat({ onClose }: AIChatProps) {
 
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    
+    // If waiting for human, don't call AI - just save the message
+    if (isWaitingForHuman) {
+      // Save to Supabase so admin can see the new message
+      saveToSupabase([...messages, userMessage]);
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -420,45 +418,10 @@ export default function AIChat({ onClose }: AIChatProps) {
     setShowContactForm(true);
   };
 
-  const handleContactMethodSelect = async (method: string) => {
-    const newContactInfo = { ...contactInfo, preferredContact: method };
-    setContactInfo(newContactInfo);
-    
-    // If they chose "Chat with a human here", proceed immediately
-    if (method === 'continue_chat') {
-      const handoffMessage: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: "Perfect! A member of our KiWA Labs team will join this chat shortly to assist you. Please continue chatting here and we'll respond as soon as possible.",
-        timestamp: new Date().toISOString()
-      };
-      
-      setMessages((prev) => [...prev, handoffMessage]);
-      setShowContactForm(false);
-      
-      // Save to Supabase immediately with the contact preference
-      try {
-        await fetch('/api/chat/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            messages: [...messages, handoffMessage],
-            timestamp: new Date().toISOString(),
-            status: 'handoff_requested',
-            contactInfo: { ...newContactInfo, preferredContact: 'Chat with a human here' }
-          }),
-        });
-      } catch (error) {
-        console.error('Failed to save handoff:', error);
-      }
-    }
-  };
-
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For email or whatsapp, require the contact details
+    // Validate based on selected method
     if (contactInfo.preferredContact === 'email' && !contactInfo.email) {
       alert('Please provide your email address');
       return;
@@ -470,7 +433,14 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
 
     let messageContent = '';
-    if (contactInfo.preferredContact === 'email') {
+    let updatedContactInfo = { ...contactInfo };
+    
+    if (contactInfo.preferredContact === 'continue_chat') {
+      // User wants to chat with human in this chat
+      messageContent = "Perfect! A member of our KiWA Labs team will join this chat shortly to assist you. Please continue chatting here and we'll respond as soon as possible.";
+      updatedContactInfo.preferredContact = 'Chat with a human here';
+      setIsWaitingForHuman(true); // Stop AI from responding
+    } else if (contactInfo.preferredContact === 'email') {
       messageContent = `Thank you! I've collected your contact information. Our team will reach out to you via email at ${contactInfo.email} within 24 hours.\n\nWe look forward to discussing your project in detail!`;
     } else if (contactInfo.preferredContact === 'whatsapp') {
       messageContent = `Thank you! I've collected your contact information. Our team will reach out to you via WhatsApp at ${contactInfo.whatsapp} within 24 hours.\n\nWe look forward to discussing your project in detail!`;
@@ -791,7 +761,6 @@ export default function AIChat({ onClose }: AIChatProps) {
               contactInfo={contactInfo}
               setContactInfo={setContactInfo}
               onSubmit={handleContactSubmit}
-              onMethodSelect={handleContactMethodSelect}
             />
           </motion.div>
         )}
