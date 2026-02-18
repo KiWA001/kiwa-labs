@@ -216,17 +216,17 @@ export default function AIChat({ onClose }: AIChatProps) {
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '2rem',
+            fontSize: '1.05rem',
             fontWeight: 500,
             color: '#000',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '30px',
-            height: '30px',
+            width: '17px',
+            height: '17px',
             padding: 0,
             lineHeight: 1,
-            marginTop: '-4px',
+            marginTop: '-2px',
           }}
           aria-label="Close chat"
         >
