@@ -160,9 +160,11 @@ export default function AIChat({ onClose }: AIChatProps) {
     const container = containerRef.current;
     if (!container) return;
 
-    const preventSwipe = (e: TouchEvent) => {
-      // Prevent default swipe behavior
-      e.stopPropagation();
+    // Block native iOS back swipe if touch starts very close to the left edge
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches[0] && e.touches[0].pageX < 25) {
+        e.preventDefault();
+      }
     };
 
     const preventSwipeBack = (e: Event) => {
@@ -171,16 +173,13 @@ export default function AIChat({ onClose }: AIChatProps) {
       e.preventDefault();
     };
 
-    container.addEventListener('touchstart', preventSwipe, { passive: false });
-    container.addEventListener('touchmove', preventSwipe, { passive: false });
-    container.addEventListener('touchend', preventSwipe, { passive: false });
+    // Use capture phase and passive: false to ensure preventDefault works
+    container.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
     window.addEventListener('swipe-back', preventSwipeBack, true);
     window.addEventListener('edge-swipe-right', preventSwipeBack, true);
 
     return () => {
-      container.removeEventListener('touchstart', preventSwipe);
-      container.removeEventListener('touchmove', preventSwipe);
-      container.removeEventListener('touchend', preventSwipe);
+      container.removeEventListener('touchstart', handleTouchStart, { capture: true });
       window.removeEventListener('swipe-back', preventSwipeBack, true);
       window.removeEventListener('edge-swipe-right', preventSwipeBack, true);
     };
@@ -202,17 +201,13 @@ export default function AIChat({ onClose }: AIChatProps) {
       {/* Header with Close and Clear buttons */}
       <div
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          padding: '16px 20px',
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid #f0f0f0',
+          position: 'fixed',
+          top: '40px',
+          left: '30px',
           zIndex: 20,
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
+          height: '30px',
         }}
       >
         <button
@@ -221,46 +216,47 @@ export default function AIChat({ onClose }: AIChatProps) {
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '1.5rem',
+            fontSize: '2rem',
+            fontWeight: 500,
             color: '#000',
-            padding: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             width: '30px',
             height: '30px',
+            padding: 0,
+            lineHeight: 1,
+            marginTop: '-4px',
           }}
           aria-label="Close chat"
         >
           ✕
         </button>
+      </div>
+      <div
+        style={{
+          position: 'fixed',
+          top: '40px',
+          right: '30px',
+          zIndex: 20,
+          display: 'flex',
+          alignItems: 'center',
+          height: '30px',
+        }}
+      >
         <span
-          style={{
-            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
-            fontSize: '1rem',
-            fontWeight: 500,
-            color: '#000',
-          }}
-        >
-          K-AI
-        </span>
-        <button
           onClick={handleClearChat}
           style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
+            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
             fontSize: '1.2rem',
             fontWeight: 500,
-            color: '#000',
+            color: '#000000',
             letterSpacing: '-0.01em',
-            padding: '8px 12px',
-            fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
           }}
-          aria-label="Clear chat"
-        >
-          Clear
-        </button>
+        >Clear</span>
       </div>
 
       {/* Messages Area - Scrollable */}
@@ -269,7 +265,7 @@ export default function AIChat({ onClose }: AIChatProps) {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '80px 20px 100px 20px',
+          padding: '100px 20px 100px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
@@ -396,6 +392,25 @@ export default function AIChat({ onClose }: AIChatProps) {
           zIndex: 10,
         }}
       >
+        {/* Human agent option */}
+        <div style={{
+          maxWidth: '600px',
+          margin: '0 auto 8px auto',
+          textAlign: 'center',
+        }}>
+          <a
+            href="mailto:kiwalabs@gmail.com"
+            style={{
+              fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
+              fontSize: '0.85rem',
+              color: '#888',
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            Prefer to email us directly? kiwalabs@gmail.com
+          </a>
+        </div>
         <form
           onSubmit={handleSubmit}
           style={{

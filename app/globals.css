@@ -29,8 +29,7 @@ body {
 /* Prevent inputs from zooming on focus (iOS hack: font-size 16px) */
 input,
 textarea,
-select,
-button {
+select {
   font-size: 16px !important;
   touch-action: manipulation;
 }

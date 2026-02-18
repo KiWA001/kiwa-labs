@@ -23,7 +23,6 @@ export default function Home() {
     { id: 'journal', label: 'Journal' },
     { id: 'vision-2030', label: 'Vision 2030' },
     { id: 'our-impact', label: 'Our Impact' },
-    { id: 'ai-assistant', label: 'AI Assistant' },
     { id: 'start-a-project', label: 'Start a Project' }
   ];
 
@@ -636,7 +635,7 @@ export default function Home() {
             }}
             onClick={() => setIsMenuOpen(true)} // Open Menu Action
           >
-            <div style={{ position: 'relative', width: '30px', height: '30px' }}>
+            <div style={{ position: 'relative', width: '21px', height: '21px' }}>
               <Image
                 src="/click-to-open-menu-icon.png"
                 alt="Menu"
@@ -676,35 +675,7 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* AI Icon - Bottom Right, opposite to numbered menus */}
-        {stage === 'landing' && !activeMenuSection && (
-          <motion.div
-            key="ai-icon-landing"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              position: 'absolute',
-              bottom: '80px',
-              right: '5vw',
-              zIndex: 10,
-              cursor: 'pointer',
-            }}
-            onClick={() => setActiveMenuSection('ai-assistant')}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div style={{ position: 'relative', width: '50px', height: '50px' }}>
-              <Image
-                src="/Aiicon.png"
-                alt="KiWA Labs AI"
-                fill
-                style={{ objectFit: 'contain' }}
-              />
-            </div>
-          </motion.div>
-        )}
+
 
         {/* BRAUN GRID NAVIGATION - Hide when menu section is active */}
         {stage === 'landing' && !activeMenuSection && (
@@ -841,7 +812,7 @@ export default function Home() {
               fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
             }}>
               {activeMenuSection === 'why-choose-us' && (
-                <div style={{ paddingBottom: '100px', maxWidth: '800px' }}>
+                <div style={{ paddingBottom: '20px', maxWidth: '800px' }}>
                   <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1104,7 +1075,7 @@ export default function Home() {
               )}
 
               {activeMenuSection === 'vision-2030' && (
-                <div style={{ paddingBottom: '100px', maxWidth: '800px' }}>
+                <div style={{ paddingBottom: '20px', maxWidth: '800px' }}>
                   <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1388,24 +1359,27 @@ export default function Home() {
                       transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
                       style={{
                         backgroundColor: '#ffffff',
-                        borderRadius: '20px',
+                        borderRadius: '24px',
                         overflow: 'hidden',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
-                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
                         maxWidth: isDesktop ? 'none' : '280px',
                         width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
                       }}
-                      onClick={() => window.open('https://www.klassikbubu.ng', '_blank')}
+                      onClick={() => setWebviewUrl('https://www.klassikbubu.ng')}
                       whileHover={{
-                        scale: 1.02,
-                        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
+                        y: -8,
+                        boxShadow: '0 30px 80px rgba(0, 0, 0, 0.2), 0 12px 40px rgba(0, 0, 0, 0.15)',
                       }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <div style={{
                         position: 'relative',
                         width: '100%',
+                        height: isDesktop ? '350px' : '280px',
                         backgroundColor: '#f5f5f5',
                         display: 'flex',
                         alignItems: 'center',
@@ -1417,16 +1391,17 @@ export default function Home() {
                           alt="Klassic Bubu - Fashion E-commerce"
                           style={{
                             width: '100%',
-                            height: 'auto',
+                            height: '100%',
+                            objectFit: 'cover',
                             display: 'block',
                           }}
                         />
                       </div>
-                      <div style={{ padding: '24px' }}>
+                      <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
                         <h3 style={{
-                          fontSize: '1.3rem',
+                          fontSize: '1.4rem',
                           fontWeight: 600,
-                          marginBottom: '8px',
+                          marginBottom: '10px',
                           color: '#1a1a1a',
                         }}>
                           Klassic Bubu
@@ -1434,13 +1409,13 @@ export default function Home() {
                         <p style={{
                           fontSize: '1rem',
                           color: '#555',
-                          marginBottom: '12px',
+                          marginBottom: '16px',
                           lineHeight: 1.5,
                         }}>
                           Fashion E-commerce Platform
                         </p>
                         <span style={{
-                          fontSize: '0.9rem',
+                          fontSize: '0.95rem',
                           color: '#0066cc',
                           fontWeight: 500,
                         }}>
@@ -1456,24 +1431,27 @@ export default function Home() {
                       transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
                       style={{
                         backgroundColor: '#ffffff',
-                        borderRadius: '20px',
+                        borderRadius: '24px',
                         overflow: 'hidden',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
-                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 25px rgba(0, 0, 0, 0.1)',
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
                         maxWidth: isDesktop ? 'none' : '280px',
                         width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
                       }}
                       onClick={() => setWebviewUrl('https://ki-waflow.vercel.app')}
                       whileHover={{
-                        scale: 1.02,
-                        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
+                        y: -8,
+                        boxShadow: '0 30px 80px rgba(0, 0, 0, 0.2), 0 12px 40px rgba(0, 0, 0, 0.15)',
                       }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <div style={{
                         position: 'relative',
                         width: '100%',
+                        height: isDesktop ? '350px' : '280px',
                         backgroundColor: '#f5f5f5',
                         display: 'flex',
                         alignItems: 'center',
@@ -1485,16 +1463,17 @@ export default function Home() {
                           alt="KiWA Flow - Website Builder"
                           style={{
                             width: '100%',
-                            height: 'auto',
+                            height: '100%',
+                            objectFit: 'cover',
                             display: 'block',
                           }}
                         />
                       </div>
-                      <div style={{ padding: '24px' }}>
+                      <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
                         <h3 style={{
-                          fontSize: '1.3rem',
+                          fontSize: '1.4rem',
                           fontWeight: 600,
-                          marginBottom: '8px',
+                          marginBottom: '10px',
                           color: '#1a1a1a',
                         }}>
                           KiWA Flow
@@ -1502,13 +1481,13 @@ export default function Home() {
                         <p style={{
                           fontSize: '1rem',
                           color: '#555',
-                          marginBottom: '12px',
+                          marginBottom: '16px',
                           lineHeight: 1.5,
                         }}>
                           Intuitive Website Builder
                         </p>
                         <span style={{
-                          fontSize: '0.9rem',
+                          fontSize: '0.95rem',
                           color: '#0066cc',
                           fontWeight: 500,
                         }}>
@@ -1740,7 +1719,7 @@ export default function Home() {
               )}
 
               {activeMenuSection === 'our-impact' && (
-                <div style={{ paddingBottom: '100px', maxWidth: '800px' }}>
+                <div style={{ paddingBottom: '20px', maxWidth: '800px' }}>
                   <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1799,29 +1778,8 @@ export default function Home() {
                 </div>
               )}
 
-              {activeMenuSection === 'ai-assistant' && (
-                <div style={{
-                  width: '100%',
-                  height: '100%',
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  overflow: 'hidden',
-                  zIndex: 45,
-                  touchAction: 'none',
-                }}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-                >
-                  <AIChat onClose={() => setActiveMenuSection(null)} />
-                </div>
-              )}
-
-              {(activeMenuSection === 'start-a-project' || activeMenuSection === 'contact-us') && (
-                <div style={{ paddingBottom: '100px', maxWidth: '800px', width: '100%' }}>
+              {activeMenuSection === 'start-a-project' && (
+                <div style={{ paddingBottom: '20px', maxWidth: '800px', width: '100%' }}>
                   <motion.h2
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1834,7 +1792,7 @@ export default function Home() {
                       textAlign: 'center'
                     }}
                   >
-                    {activeMenuSection === 'start-a-project' ? 'Start a Project' : 'Contact Us'}
+                    Start a Project
                   </motion.h2>
                   <p style={{
                     fontSize: '1.1rem',
@@ -1843,7 +1801,7 @@ export default function Home() {
                     marginBottom: '60px',
                     fontWeight: 400
                   }}>
-                    Let’s build something that lasts.
+                    Let's build something that lasts.
                   </p>
 
                   <div style={{
@@ -1857,7 +1815,7 @@ export default function Home() {
                       Have an idea or a specific inquiry?
                     </p>
                     <p style={{ fontSize: '1.1rem', color: '#555', lineHeight: 1.8, marginBottom: '40px' }}>
-                      We take on a limited number of projects to ensure the highest level of precision and care. Whether you are building from scratch or scaling an existing ecosystem, we’d love to hear from you.
+                      We take on a limited number of projects to ensure the highest level of precision and care. Whether you are building from scratch or scaling an existing ecosystem, we'd love to hear from you.
                     </p>
 
                     <motion.a
@@ -1887,7 +1845,28 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'pricing', 'journal', 'our-impact', 'start-a-project', 'contact-us', 'ai-assistant'].includes(activeMenuSection) && (
+
+              {activeMenuSection === 'contact-us' && (
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  overflow: 'hidden',
+                  zIndex: 45,
+                  touchAction: 'none',
+                }}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                >
+                  <AIChat onClose={() => setActiveMenuSection(null)} />
+                </div>
+              )}
+              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'pricing', 'journal', 'our-impact', 'start-a-project', 'contact-us'].includes(activeMenuSection) && (
                 <>
                   <h2 style={{
                     fontSize: 'clamp(1.8rem, 5vw, 3rem)',
@@ -1910,8 +1889,8 @@ export default function Home() {
               )}
             </div>
 
-            {/* Footer Navigation - Hide for AI Assistant */}
-            {activeMenuSection !== 'ai-assistant' && (() => {
+            {/* Footer Navigation - Hide for Contact Us (AI Chat) */}
+            {activeMenuSection !== 'contact-us' && (() => {
               const { prev, next } = getPrevNext(activeMenuSection);
               const hasPrev = !!prev;
               const hasNext = !!next;
@@ -1932,13 +1911,12 @@ export default function Home() {
                     cursor: 'pointer',
                     color: '#000',
                     fontSize: '1rem',
-                    fontWeight: 400,
-                    paddingBottom: '2px',
-                    opacity: 0.8,
+                    fontWeight: 500,
+                    opacity: 0.6,
                     transition: 'opacity 0.2s',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
                 >
                   {showIcon && closePagePosition === 'left' && <span style={{ fontSize: '1.2rem' }}>✕</span>}
                   <span>Close Page</span>
@@ -1955,6 +1933,8 @@ export default function Home() {
                     gap: '10px',
                     cursor: 'pointer',
                     color: '#000',
+                    fontSize: '1rem',
+                    fontWeight: 500,
                     opacity: 0.6,
                     transition: 'opacity 0.2s'
                   }}
@@ -1962,26 +1942,28 @@ export default function Home() {
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
                 >
                   <span style={{ fontSize: '1.2rem' }}>←</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{prev.label}</span>
+                  <span>{prev.label}</span>
                 </div>
               );
               
               const nextElement = next && (
                 <div
-                  onClick={() => setActiveMenuSection(next.id)}
+                  onClick={() => setActiveMenuSection(next.id === 'start-a-project' ? 'contact-us' : next.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
                     cursor: 'pointer',
                     color: '#000',
+                    fontSize: '1rem',
+                    fontWeight: 500,
                     opacity: 0.6,
                     transition: 'opacity 0.2s'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
                 >
-                  <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{next.label}</span>
+                  <span>{next.label}</span>
                   <span style={{ fontSize: '1.2rem' }}>→</span>
                 </div>
               );
@@ -2077,8 +2059,8 @@ export default function Home() {
                     position: 'absolute',
                     top: '40px', // Match site top padding
                     right: '30px', // Match site side padding
-                    width: '30px',
-                    height: '30px',
+                    width: '21px',
+                    height: '21px',
                     cursor: 'pointer',
                     zIndex: 51
                   }}
@@ -2190,31 +2172,6 @@ export default function Home() {
               backgroundColor: '#ffffff',
             }}
           >
-            {/* Close Button - Top Right */}
-            <motion.div
-              style={{
-                position: 'absolute',
-                top: '20px',
-                right: '20px',
-                zIndex: 1001,
-                cursor: 'pointer',
-                fontSize: '1.5rem',
-                width: '40px',
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                color: '#fff',
-                borderRadius: '50%',
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.history.back()}
-            >
-              ✕
-            </motion.div>
-
             {/* Back to KiWA Labs - Middle Left */}
             <motion.div
               initial={{ x: -100, opacity: 0 }}
