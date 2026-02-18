@@ -11,9 +11,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Replace with actual Supabase integration
-    // For now, return success
-    
+    // Log the message for now
     console.log('Admin sending message:', {
       sessionId,
       message

@@ -12,16 +12,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // TODO: Replace with actual Supabase integration
-    // Fetch admin messages for this session that haven't been delivered yet
-    // Once you provide Supabase credentials, we'll update this
-    
-    console.log('Polling for admin messages:', sessionId);
-
-    // Placeholder response - return empty array for now
+    // Return empty array for now - will implement with Supabase later
     return NextResponse.json({ 
       adminMessages: [],
-      message: 'Polling endpoint ready - awaiting Supabase integration'
+      message: 'Polling endpoint ready'
     });
   } catch (error) {
     console.error('Poll error:', error);
