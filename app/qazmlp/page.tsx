@@ -8,19 +8,21 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'admin';
   content: string;
   timestamp?: string;
-  contactInfo?: {
+}
+
+interface ChatSession {
+  session_id: string;
+  sessionId?: string;
+  messages: ChatMessage[];
+  last_updated?: string;
+  lastUpdated?: string;
+  status?: string;
+  contact_info?: {
     email?: string;
     phone?: string;
     whatsapp?: string;
     preferredContact?: string;
   };
-}
-
-interface ChatSession {
-  sessionId: string;
-  messages: ChatMessage[];
-  lastUpdated: string;
-  status?: string;
   contactInfo?: {
     email?: string;
     phone?: string;
@@ -37,10 +39,9 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminInput, setAdminInput] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Password from user
   const ADMIN_PASSWORD = 'Aaaaa1$.';
 
   useEffect(() => {
@@ -56,6 +57,35 @@ export default function AdminPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Check for passkey on mount
+  useEffect(() => {
+    const checkPasskey = async () => {
+      if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+        try {
+          const stored = localStorage.getItem('admin-passkey-registered');
+          if (stored) {
+            // Try to authenticate with passkey
+            const credential = await navigator.credentials.get({
+              publicKey: {
+                challenge: new Uint8Array(32),
+                rpId: window.location.hostname,
+                userVerification: 'preferred',
+                allowCredentials: []
+              }
+            });
+            if (credential) {
+              setIsAuthenticated(true);
+            }
+          }
+        } catch (e) {
+          console.log('Passkey auth failed or not available');
+        }
+      }
+    };
+    
+    checkPasskey();
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchSessions();
@@ -68,15 +98,61 @@ export default function AdminPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedSession?.messages]);
 
+  const registerPasskey = async () => {
+    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+      alert('Passkeys not supported in this browser');
+      return;
+    }
+
+    try {
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: new Uint8Array(32),
+          rp: {
+            name: 'KiWA Labs Admin',
+            id: window.location.hostname
+          },
+          user: {
+            id: new Uint8Array(16),
+            name: 'admin',
+            displayName: 'KiWA Admin'
+          },
+          pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'preferred'
+          }
+        }
+      });
+
+      if (credential) {
+        localStorage.setItem('admin-passkey-registered', 'true');
+        alert('Passkey registered successfully! You can now use it to log in.');
+      }
+    } catch (e) {
+      console.error('Passkey registration failed:', e);
+      alert('Failed to register passkey');
+    }
+  };
+
   const fetchSessions = async () => {
     try {
       const response = await fetch('/api/admin/sessions');
       if (response.ok) {
         const data = await response.json();
-        setSessions(data.sessions || []);
+        // Normalize the data to handle both snake_case and camelCase
+        const normalizedSessions = (data.sessions || []).map((s: ChatSession) => ({
+          ...s,
+          sessionId: s.session_id || s.sessionId,
+          lastUpdated: s.last_updated || s.lastUpdated,
+          contactInfo: s.contact_info || s.contactInfo
+        }));
+        setSessions(normalizedSessions);
         
         if (selectedSession) {
-          const updated = data.sessions.find((s: ChatSession) => s.sessionId === selectedSession.sessionId);
+          const updated = normalizedSessions.find((s: ChatSession) => 
+            s.sessionId === selectedSession.sessionId
+          );
           if (updated) {
             setSelectedSession(updated);
           }
@@ -93,6 +169,10 @@ export default function AdminPage() {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
+      // Optionally register passkey after successful login
+      if (window.confirm('Would you like to set up a passkey for faster login next time?')) {
+        registerPasskey();
+      }
     } else {
       alert('Invalid password');
     }
@@ -111,7 +191,7 @@ export default function AdminPage() {
 
     const updatedSession = {
       ...selectedSession,
-      messages: [...selectedSession.messages, newMessage],
+      messages: [...(selectedSession.messages || []), newMessage],
       lastUpdated: new Date().toISOString()
     };
     setSelectedSession(updatedSession);
@@ -227,11 +307,20 @@ export default function AdminPage() {
                 fontSize: '1rem',
                 fontWeight: 500,
                 cursor: 'pointer',
+                marginBottom: '12px',
               }}
             >
               Login
             </button>
           </form>
+          <div style={{
+            textAlign: 'center',
+            fontSize: '0.8rem',
+            color: '#888',
+            marginTop: '16px',
+          }}>
+            🔐 Passkey login available after first successful login
+          </div>
         </motion.div>
       </div>
     );
@@ -282,19 +371,35 @@ export default function AdminPage() {
             {isMobile && selectedSession ? 'Chat' : 'KiWA Labs - Chat Admin'}
           </h1>
         </div>
-        <button
-          onClick={() => setIsAuthenticated(false)}
-          style={{
-            padding: isMobile ? '6px 12px' : '8px 16px',
-            backgroundColor: 'transparent',
-            border: '1px solid #000',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: isMobile ? '0.85rem' : '0.9rem',
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={registerPasskey}
+            style={{
+              padding: isMobile ? '6px 12px' : '8px 16px',
+              backgroundColor: '#0066cc',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.85rem' : '0.9rem',
+            }}
+          >
+            🔐 Add Passkey
+          </button>
+          <button
+            onClick={() => setIsAuthenticated(false)}
+            style={{
+              padding: isMobile ? '6px 12px' : '8px 16px',
+              backgroundColor: 'transparent',
+              border: '1px solid #000',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: isMobile ? '0.85rem' : '0.9rem',
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div style={{
@@ -344,7 +449,7 @@ export default function AdminPage() {
                     color: '#666',
                     marginBottom: '4px',
                   }}>
-                    {new Date(session.lastUpdated).toLocaleString()}
+                    {new Date(session.lastUpdated || Date.now()).toLocaleString()}
                   </div>
                   <div style={{
                     fontSize: isMobile ? '0.9rem' : '0.95rem',
@@ -353,7 +458,7 @@ export default function AdminPage() {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                   }}>
-                    {session.messages[0]?.content.substring(0, 40)}...
+                    {session.messages?.[0]?.content?.substring(0, 40) || 'No messages'}...
                   </div>
                   <div style={{
                     fontSize: '0.75rem',
@@ -363,7 +468,7 @@ export default function AdminPage() {
                     flexWrap: 'wrap',
                     gap: '4px',
                   }}>
-                    <span>{session.messages.length} msgs</span>
+                    <span>{session.messages?.length || 0} msgs</span>
                     {session.status === 'handoff_requested' && (
                       <span style={{
                         padding: '2px 6px',
@@ -414,14 +519,14 @@ export default function AdminPage() {
                     fontSize: '0.8rem',
                     color: '#666',
                   }}>
-                    Session: {selectedSession.sessionId.substring(0, 20)}...
+                    Session: {selectedSession.sessionId?.substring(0, 20)}...
                   </div>
                   <div style={{
                     fontSize: '0.8rem',
                     color: '#666',
                     marginTop: '4px',
                   }}>
-                    {new Date(selectedSession.lastUpdated).toLocaleString()}
+                    {new Date(selectedSession.lastUpdated || Date.now()).toLocaleString()}
                   </div>
                   {selectedSession.status === 'handoff_requested' && (
                     <div style={{
@@ -457,9 +562,9 @@ export default function AdminPage() {
                   overflowY: 'auto',
                   padding: isMobile ? '15px' : '20px',
                 }}>
-                  {selectedSession.messages.map((message) => (
+                  {(selectedSession.messages || []).map((message, index) => (
                     <div
-                      key={message.id}
+                      key={message.id || index}
                       style={{
                         marginBottom: '12px',
                         display: 'flex',
