@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 export async function GET() {
   try {
+    console.log('Fetching sessions from Supabase...');
+    
     const { data: sessions, error } = await supabase
       .from('chat_sessions')
       .select('*')
@@ -21,6 +23,8 @@ export async function GET() {
       );
     }
 
+    console.log(`Found ${sessions?.length || 0} sessions`);
+    
     return NextResponse.json({ 
       sessions: sessions || []
     });
