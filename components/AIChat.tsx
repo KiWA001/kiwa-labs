@@ -788,7 +788,7 @@ export default function AIChat({ onClose }: AIChatProps) {
           textAlign: 'center',
         }}>
           <a
-            href="mailto:kiwalabs@gmail.com"
+            href="mailto:hello@kiwalabs.dev"
             style={{
               fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
               fontSize: '0.85rem',
@@ -797,7 +797,7 @@ export default function AIChat({ onClose }: AIChatProps) {
               cursor: 'pointer',
             }}
           >
-            Prefer to email us directly? kiwalabs@gmail.com
+            Prefer to email us directly? hello@kiwalabs.dev
           </a>
         </div>
         <form

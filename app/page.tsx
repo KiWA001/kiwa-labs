@@ -1819,7 +1819,7 @@ export default function Home() {
                     </p>
 
                     <motion.a
-                      href="mailto:kiwalabs@gmail.com"
+                      href="mailto:hello@kiwalabs.dev"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       style={{
@@ -1839,7 +1839,7 @@ export default function Home() {
                     </motion.a>
 
                     <div style={{ marginTop: '50px', fontSize: '1rem', color: '#888' }}>
-                      <p>kiwalabs@gmail.com</p>
+                      <p>hello@kiwalabs.dev</p>
                       <p style={{ marginTop: '10px' }}>Lagos, Nigeria — Global Reach.</p>
                     </div>
                   </div>
