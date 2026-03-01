@@ -518,7 +518,7 @@ export default function Home() {
         style={{
           position: 'relative',
           width: '100vw',
-          height: '100vh',
+          height: '100dvh',
           background: '#ffffff',
           display: 'flex',
           alignItems: 'center',
@@ -636,7 +636,7 @@ export default function Home() {
             onClick={() => setIsMenuOpen(true)} // Open Menu Action
           >
             <div style={{ position: 'relative', width: '21px', height: '21px' }}>
-              <Image
+              <Image priority
                 src="/click-to-open-menu-icon.png"
                 alt="Menu"
                 fill
@@ -683,7 +683,7 @@ export default function Home() {
             key="landing-nav"
             style={{
               position: 'absolute',
-              bottom: '80px', // Positioned at bottom
+              bottom: isDesktop ? '80px' : '120px', // Positioned at bottom
               left: '5vw',
               display: 'flex',
               flexDirection: 'column',
@@ -771,7 +771,7 @@ export default function Home() {
               top: 0,
               left: 0,
               width: '100vw',
-              height: '100vh',
+              height: '100dvh',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -838,7 +838,7 @@ export default function Home() {
                   </p>
 
                   <div style={{ marginBottom: '80px' }}>
-                    <Image
+                    <Image priority
                       src="/setup2.0.jpg"
                       alt="Foresight"
                       width={800}
@@ -858,7 +858,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Security Is Foundational</h3>
-                    <Image
+                    <Image priority
                       src="/foundation built on trust.JPG"
                       alt="Security"
                       width={800}
@@ -880,7 +880,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Built to Last</h3>
-                    <Image
+                    <Image priority
                       src="/innovation that actually matters.PNG"
                       alt="Built to Last"
                       width={800}
@@ -904,7 +904,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Patience Is Our Practice</h3>
-                    <Image
+                    <Image priority
                       src="/patience is a competitive advantage.PNG"
                       alt="Patience"
                       width={800}
@@ -927,7 +927,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>We Think in Systems, Not Pages</h3>
-                    <Image
+                    <Image priority
                       src="/Building Platforms, Not Just Websites.JPG"
                       alt="Systems Thinking"
                       width={800}
@@ -960,7 +960,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Clear Communication, Calm Process</h3>
-                    <Image
+                    <Image priority
                       src="/collaborative-calm-workflow.png"
                       alt="Collaborative Workflow"
                       width={800}
@@ -982,7 +982,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Long-Term Partnership Thinking</h3>
-                    <Image
+                    <Image priority
                       src="/handshake.png"
                       alt="Partnership"
                       width={800}
@@ -1004,7 +1004,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>Technology With Impact</h3>
-                    <Image
+                    <Image priority
                       src="/Technology with responsibility.JPG"
                       alt="Impact"
                       width={800}
@@ -1030,7 +1030,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '2rem', fontWeight: 300, marginBottom: '30px', textAlign: 'center' }}>A Thoughtful Choice</h3>
-                    <Image
+                    <Image priority
                       src="/looking ahead.PNG"
                       alt="Thoughtful Choice"
                       width={800}
@@ -1147,7 +1147,7 @@ export default function Home() {
                       </h3>
 
                       {section.image && (
-                        <img
+                        <img loading="eager" fetchPriority="high"
                           src={section.image}
                           alt={section.title}
                           style={{
@@ -1386,7 +1386,7 @@ export default function Home() {
                         justifyContent: 'center',
                         overflow: 'hidden',
                       }}>
-                        <img
+                        <img loading="eager" fetchPriority="high"
                           src="/klassic-bubu-new.png"
                           alt="Klassic Bubu - Fashion E-commerce"
                           style={{
@@ -1458,7 +1458,7 @@ export default function Home() {
                         justifyContent: 'center',
                         overflow: 'hidden',
                       }}>
-                        <img
+                        <img loading="eager" fetchPriority="high"
                           src="/kiwa-flow.png"
                           alt="KiWA Flow - Website Builder"
                           style={{
@@ -1746,7 +1746,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '1.8rem', fontWeight: 300, marginBottom: '20px', textAlign: 'center' }}>One Tree Planted</h3>
-                    <img
+                    <img loading="eager" fetchPriority="high"
                       src="/trees.png"
                       alt="One Tree Planted"
                       style={{ width: '100%', height: 'auto', borderRadius: '12px', marginBottom: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}
@@ -1763,7 +1763,7 @@ export default function Home() {
 
                   <div style={{ marginBottom: '80px' }}>
                     <h3 style={{ fontSize: '1.8rem', fontWeight: 300, marginBottom: '20px', textAlign: 'center' }}>Philanthropy & Support</h3>
-                    <img
+                    <img loading="eager" fetchPriority="high"
                       src="/donate.png"
                       alt="Philanthropy"
                       style={{ width: '100%', height: 'auto', borderRadius: '12px', marginBottom: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}
@@ -1819,7 +1819,7 @@ export default function Home() {
                     </p>
 
                     <motion.a
-                      href="mailto:hello@kiwalabs.dev"
+                      href="mailto:info@kiwalabs.dev"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       style={{
@@ -1839,7 +1839,7 @@ export default function Home() {
                     </motion.a>
 
                     <div style={{ marginTop: '50px', fontSize: '1rem', color: '#888' }}>
-                      <p>hello@kiwalabs.dev</p>
+                      <p>info@kiwalabs.dev</p>
                       <p style={{ marginTop: '10px' }}>Lagos, Nigeria — Global Reach.</p>
                     </div>
                   </div>
@@ -2020,7 +2020,7 @@ export default function Home() {
                   top: 0,
                   left: 0,
                   width: '100vw',
-                  height: '100vh',
+                  height: '100dvh',
                   backgroundColor: 'rgba(255, 255, 255, 0.4)', // Light backdrop
                   backdropFilter: 'blur(10px)', // Glassmorphism
                   WebkitBackdropFilter: 'blur(10px)',
@@ -2069,7 +2069,7 @@ export default function Home() {
                     setIsMenuOpen(false);
                   }}
                 >
-                  <Image
+                  <Image priority
                     src="/click-to-close-menu-icon.png"
                     alt="Close Menu"
                     fill
@@ -2167,7 +2167,7 @@ export default function Home() {
               top: 0,
               left: 0,
               width: '100vw',
-              height: '100vh',
+              height: '100dvh',
               zIndex: 1000,
               backgroundColor: '#ffffff',
             }}

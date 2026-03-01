@@ -234,7 +234,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       setMessages([{
         id: 'welcome',
         role: 'assistant',
-        content: "What would you like to build?",
+        content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
         timestamp: new Date().toISOString()
       }]);
     }
@@ -314,7 +314,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       const welcomeMessage = {
         id: 'welcome',
         role: 'assistant' as const,
-        content: "What would you like to build?",
+        content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
         timestamp: new Date().toISOString()
       };
       setMessages([welcomeMessage]);
@@ -625,6 +625,7 @@ export default function AIChat({ onClose }: AIChatProps) {
                 padding: '12px 16px',
                 borderRadius: message.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                 wordBreak: 'break-word',
+                textAlign: 'left',
               }}
             >
               {message.role === 'admin' && (
@@ -715,7 +716,7 @@ export default function AIChat({ onClose }: AIChatProps) {
               borderRadius: '30px',
               cursor: 'pointer',
               fontWeight: 500,
-              textAlign: 'center',
+              
             }}
             onClick={initiateHandoff}
             whileHover={{ scale: 1.05 }}
@@ -788,7 +789,7 @@ export default function AIChat({ onClose }: AIChatProps) {
           textAlign: 'center',
         }}>
           <a
-            href="mailto:hello@kiwalabs.dev"
+            href="mailto:info@kiwalabs.dev"
             style={{
               fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
               fontSize: '0.85rem',
@@ -797,7 +798,7 @@ export default function AIChat({ onClose }: AIChatProps) {
               cursor: 'pointer',
             }}
           >
-            Prefer to email us directly? hello@kiwalabs.dev
+            Prefer to email us directly? info@kiwalabs.dev
           </a>
         </div>
         <form
@@ -813,9 +814,14 @@ export default function AIChat({ onClose }: AIChatProps) {
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              // Capitalize the first letter and any letter following a sentence-ending punctuation + space
+              const capitalized = val.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, prefix, letter) => prefix + letter.toUpperCase());
+              setInput(capitalized);
+            }}
             onKeyDown={handleKeyDown}
-            placeholder="Message K-AI..."
+            placeholder="Message..."
             disabled={isLoading}
             style={{
               flex: 1,
