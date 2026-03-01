@@ -17,16 +17,41 @@ export async function POST(request: Request) {
       );
     }
 
-    // Insert admin message
+    // Fetch current session first
+    const { data: sessionData, error: fetchError } = await supabase
+      .from('chat_sessions')
+      .select('messages')
+      .eq('session_id', sessionId)
+      .single();
+
+    if (fetchError || !sessionData) {
+      console.error('Session fetch error:', fetchError);
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      );
+    }
+
+    const currentMessages = sessionData.messages || [];
+    
+    // Ensure the message has ID and timestamp if missing
+    const newMsg = {
+      ...message,
+      id: message.id || Date.now().toString(),
+      role: 'admin',
+      timestamp: message.timestamp || new Date().toISOString()
+    };
+
+    const updatedMessages = [...currentMessages, newMsg];
+
+    // Update session
     const { data, error } = await supabase
-      .from('admin_messages')
-      .insert({
-        session_id: sessionId,
-        role: 'admin',
-        content: message.content,
-        timestamp: message.timestamp || new Date().toISOString(),
-        is_read: false
+      .from('chat_sessions')
+      .update({ 
+        messages: updatedMessages,
+        last_updated: newMsg.timestamp
       })
+      .eq('session_id', sessionId)
       .select();
 
     if (error) {

@@ -1544,14 +1544,10 @@ export default function Home() {
                         </thead>
                         <tbody>
                           {[
-                            { type: 'Small Personal / Info Website', price: '₦55,000 – ₦130,000' },
-                            { type: 'Clean Modern Website (Design Only)', price: '₦100,000 – ₦280,000' },
-                            { type: 'Business Website (Contact, Forms, Admin)', price: '₦180,000 – ₦580,000' },
-                            { type: 'Custom Website with Login & Features', price: '₦280,000 – ₦1,480,000' },
-                            { type: 'Online Store (Sell Products)', price: '₦280,000 – ₦730,000' },
-                            { type: 'Booking Website (Appointments / Rentals)', price: '₦280,000 – ₦680,000' },
-                            { type: 'Admin Dashboard / Staff System', price: '₦230,000 – ₦580,000' },
-                            { type: 'Delivery / Dispatch Website (Tracking)', price: '₦380,000 – ₦1,180,000' },
+                            { type: 'Starter Website (For individuals & small businesses)', price: '₦120,000 – ₦250,000' },
+                            { type: 'Business Growth Website (For SMEs that need leads, forms, dashboards)', price: '₦300,000 – ₦750,000' },
+                            { type: 'E-Commerce / Booking Platform (For selling products or managing appointments)', price: '₦600,000 – ₦1,200,000' },
+                            { type: 'Custom Web Application (Login systems, dashboards, staff systems, tracking, internal tools)', price: '₦1,200,000 – ₦3,500,000+' },
                           ].map((item, i) => (
                             <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                               <td style={{ padding: '14px 8px', color: '#333' }}>{item.type}</td>

@@ -258,11 +258,11 @@ export default function AIChat({ onClose }: AIChatProps) {
         const response = await fetch(`/api/chat/poll?sessionId=${sessionId}`);
         if (response.ok) {
           const data = await response.json();
-          if (data.adminMessages && data.adminMessages.length > 0) {
-            // Add admin messages to chat
-            setMessages(prev => {
+          if (data.messages && data.messages.length > 0) {
+            // Compare and add any new messages from the server
+            setMessages((prev: Message[]) => {
               const existingIds = new Set(prev.map(m => m.id));
-              const newMessages = data.adminMessages.filter((m: Message) => !existingIds.has(m.id));
+              const newMessages = data.messages.filter((m: Message) => !existingIds.has(m.id));
               if (newMessages.length > 0) {
                 return [...prev, ...newMessages];
               }

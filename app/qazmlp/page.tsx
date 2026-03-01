@@ -38,7 +38,6 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminInput, setAdminInput] = useState('');
-  const [showSidebar, setShowSidebar] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -47,14 +46,18 @@ export default function AdminPage() {
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setShowSidebar(true);
-      }
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-login if previously authenticated
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('admin-auth') === 'true') {
+      setIsAuthenticated(true);
+    }
   }, []);
 
   // Check for passkey on mount
@@ -76,8 +79,8 @@ export default function AdminPage() {
               setIsAuthenticated(true);
             }
           }
-        } catch (e) {
-          console.log('Passkey auth failed or not available');
+        } catch (error) {
+          console.log('Passkey auth failed or not available', error);
         }
       }
     };
@@ -87,11 +90,40 @@ export default function AdminPage() {
 
   // Fetch sessions when authenticated
   useEffect(() => {
-    if (!isAuthenticated) return;
+    const checkSessions = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const response = await fetch('/api/admin/sessions');
+        if (response.ok) {
+          const data = await response.json();
+          const normalizedSessions = (data.sessions || []).map((session: ChatSession) => ({
+            ...session,
+            sessionId: session.session_id || session.sessionId,
+            lastUpdated: session.last_updated || session.lastUpdated,
+            contactInfo: session.contact_info || session.contactInfo
+          }));
+          setSessions(normalizedSessions);
+          
+          // Only update selected session reference if it exists
+          setSelectedSession((prevSelected) => {
+            if (!prevSelected) return null;
+            const updated = normalizedSessions.find((s: ChatSession) => 
+              s.sessionId === prevSelected.sessionId
+            );
+            return updated || prevSelected;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    fetchSessions();
+    checkSessions();
     // Poll every 3 seconds for updates
-    const interval = setInterval(fetchSessions, 3000);
+    const interval = setInterval(checkSessions, 3000);
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
@@ -99,39 +131,7 @@ export default function AdminPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedSession?.messages]);
 
-  const normalizeSession = (session: ChatSession): ChatSession => {
-    return {
-      ...session,
-      sessionId: session.session_id || session.sessionId,
-      lastUpdated: session.last_updated || session.lastUpdated,
-      contactInfo: session.contact_info || session.contactInfo
-    };
-  };
 
-  const fetchSessions = async () => {
-    try {
-      const response = await fetch('/api/admin/sessions');
-      if (response.ok) {
-        const data = await response.json();
-        const normalizedSessions = (data.sessions || []).map(normalizeSession);
-        setSessions(normalizedSessions);
-        
-        // Update selected session if it exists
-        if (selectedSession) {
-          const updated = normalizedSessions.find((s: ChatSession) => 
-            s.sessionId === selectedSession.sessionId
-          );
-          if (updated) {
-            setSelectedSession(updated);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const registerPasskey = async () => {
     if (typeof window === 'undefined' || !window.PublicKeyCredential) {
@@ -174,6 +174,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
+      localStorage.setItem('admin-auth', 'true');
       if (window.confirm('Set up passkey for faster login?')) {
         registerPasskey();
       }
@@ -230,9 +231,6 @@ export default function AdminPage() {
 
   const handleSessionSelect = (session: ChatSession) => {
     setSelectedSession(session);
-    if (isMobile) {
-      setShowSidebar(false);
-    }
   };
 
   const getMessageLabel = (role: string) => {
@@ -262,6 +260,73 @@ export default function AdminPage() {
     }
   };
 
+  // Mobile sliding pane CSS
+  const globalStyles = `
+    .admin-container {
+      display: flex;
+      height: 100dvh;
+      overflow: hidden;
+      flex-direction: row;
+      background-color: #f5f5f5;
+    }
+    
+    .sidebar-pane {
+      width: 350px;
+      height: 100%;
+      background-color: #ffffff;
+      border-right: 1px solid #e0e0e0;
+      overflow-y: auto;
+      transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+      flex-shrink: 0;
+    }
+    
+    .chat-pane {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: #ffffff;
+      transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+      position: relative;
+    }
+
+    @media (max-width: 768px) {
+      .admin-container {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .sidebar-pane {
+        width: 100%;
+        position: absolute;
+        top: env(safe-area-inset-top);
+        bottom: env(safe-area-inset-bottom);
+        z-index: 10;
+      }
+      .chat-pane {
+        width: 100%;
+        position: absolute;
+        top: env(safe-area-inset-top);
+        bottom: env(safe-area-inset-bottom);
+        z-index: 20;
+      }
+      
+      .pane-view-sidebar .sidebar-pane {
+        transform: translateX(0);
+      }
+      .pane-view-sidebar .chat-pane {
+        transform: translateX(100%);
+      }
+      
+      .pane-view-chat .sidebar-pane {
+        transform: translateX(-30%);
+        opacity: 0.5;
+      }
+      .pane-view-chat .chat-pane {
+        transform: translateX(0);
+      }
+    }
+  `;
+
   if (!isAuthenticated) {
     return (
       <div style={{
@@ -286,7 +351,7 @@ export default function AdminPage() {
           }}
         >
           <h1 style={{
-            fontSize: isMobile ? '1.3rem' : '1.5rem',
+            fontSize: '1.5rem',
             fontWeight: 600,
             marginBottom: '24px',
             textAlign: 'center',
@@ -342,11 +407,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
+    <div className="admin-wrapper" style={{
+      minHeight: '100dvh',
       backgroundColor: '#f5f5f5',
       fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
     }}>
+      <style>{globalStyles}</style>
+      
       {/* Header */}
       <div style={{
         backgroundColor: '#ffffff',
@@ -360,8 +427,9 @@ export default function AdminPage() {
         zIndex: 100,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {isMobile && selectedSession && (
+          {selectedSession && (
             <button
+              className="mobile-back-btn"
               onClick={() => {
                 setSelectedSession(null);
                 setShowSidebar(true);
@@ -373,43 +441,48 @@ export default function AdminPage() {
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
+                display: 'block', // We'll manage visibility via CSS
               }}
             >
               ← Back
             </button>
           )}
           <h1 style={{
-            fontSize: isMobile ? '1.1rem' : '1.5rem',
+            fontSize: '1.2rem',
             fontWeight: 600,
             margin: 0,
           }}>
-            {isMobile && selectedSession ? 'Chat' : 'KiWA Labs - Chat Admin'}
+            <span className="desktop-title">KiWA Labs - Chat Admin</span>
+            <span className="mobile-title">Chat</span>
           </h1>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={registerPasskey}
             style={{
-              padding: isMobile ? '6px 12px' : '8px 16px',
+              padding: '6px 12px',
               backgroundColor: '#0066cc',
               color: '#fff',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: isMobile ? '0.85rem' : '0.9rem',
+              fontSize: '0.85rem',
             }}
           >
             🔐 Add Passkey
           </button>
           <button
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => {
+              setIsAuthenticated(false);
+              localStorage.removeItem('admin-auth');
+            }}
             style={{
-              padding: isMobile ? '6px 12px' : '8px 16px',
+              padding: '6px 12px',
               backgroundColor: 'transparent',
               border: '1px solid #000',
               borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: isMobile ? '0.85rem' : '0.9rem',
+              fontSize: '0.85rem',
             }}
           >
             Logout
@@ -417,26 +490,17 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div style={{
-        display: 'flex',
-        height: isMobile ? 'calc(100vh - 60px)' : 'calc(100vh - 73px)',
-        flexDirection: isMobile ? 'column' : 'row',
-      }}>
+      <div 
+        className={`admin-container ${selectedSession ? 'pane-view-chat' : 'pane-view-sidebar'}`}
+      >
         {/* Sidebar - Session List */}
-        {(!isMobile || (isMobile && showSidebar && !selectedSession)) && (
+        <div className="sidebar-pane">
           <div style={{
-            width: isMobile ? '100%' : '350px',
-            backgroundColor: '#ffffff',
-            borderRight: isMobile ? 'none' : '1px solid #e0e0e0',
-            overflowY: 'auto',
-            display: isMobile && selectedSession ? 'none' : 'block',
+            padding: '20px',
+            borderBottom: '1px solid #e0e0e0',
+            fontWeight: 600,
+            fontSize: '1rem',
           }}>
-            <div style={{
-              padding: isMobile ? '15px' : '20px',
-              borderBottom: '1px solid #e0e0e0',
-              fontWeight: 600,
-              fontSize: isMobile ? '0.9rem' : '1rem',
-            }}>
               Conversations ({sessions.length})
             </div>
             
@@ -452,7 +516,7 @@ export default function AdminPage() {
                   key={session.sessionId}
                   onClick={() => handleSessionSelect(session)}
                   style={{
-                    padding: isMobile ? '12px 15px' : '16px 20px',
+                    padding: '16px 20px',
                     borderBottom: '1px solid #f0f0f0',
                     cursor: 'pointer',
                     backgroundColor: selectedSession?.sessionId === session.sessionId ? '#f5f5f5' : 'transparent',
@@ -511,25 +575,16 @@ export default function AdminPage() {
               ))
             )}
           </div>
-        )}
-
         {/* Main Chat View */}
-        {(!isMobile || (isMobile && selectedSession)) && (
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: '#ffffff',
-            width: isMobile ? '100%' : 'auto',
-          }}>
-            {selectedSession ? (
-              <>
-                {/* Session Header */}
-                <div style={{
-                  padding: isMobile ? '15px' : '20px',
-                  borderBottom: '1px solid #e0e0e0',
-                  backgroundColor: '#fafafa',
-                }}>
+        <div className="chat-pane">
+          {selectedSession ? (
+            <>
+              {/* Session Header */}
+              <div style={{
+                padding: '20px',
+                borderBottom: '1px solid #e0e0e0',
+                backgroundColor: '#fafafa',
+              }}>
                   <div style={{
                     fontSize: '0.8rem',
                     color: '#666',
@@ -657,7 +712,7 @@ export default function AdminPage() {
                       type="submit"
                       disabled={!adminInput.trim()}
                       style={{
-                        padding: isMobile ? '10px 16px' : '12px 24px',
+                        padding: '12px 24px',
                         backgroundColor: adminInput.trim() ? '#0066cc' : '#ccc',
                         color: '#fff',
                         border: 'none',
@@ -683,11 +738,11 @@ export default function AdminPage() {
                 padding: '20px',
                 textAlign: 'center',
               }}>
-                {isMobile ? 'Select a conversation from the list' : 'Select a conversation to view details'}
+                <span className="mobile-title">Select a conversation from the list</span>
+                <span className="desktop-title">Select a conversation to view details</span>
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   );
