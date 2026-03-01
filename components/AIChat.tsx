@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 
@@ -226,7 +226,20 @@ export default function AIChat({ onClose }: AIChatProps) {
       try {
         const parsed = JSON.parse(savedMessages);
         setMessages(parsed);
-      } catch (e) {
+        
+        // Restore AI-muted state if there are admin messages or a handoff occurred
+        const hasAdminMsg = parsed.some((m: Message) => m.role === 'admin');
+        const hasHandoffMsg = parsed.some((m: Message) => 
+          m.content.includes('join this chat shortly') || 
+          m.content.includes('connect to our team') ||
+          m.content.includes('reach out to you via email') ||
+          m.content.includes('reach out to you via WhatsApp')
+        );
+        
+        if (hasAdminMsg || hasHandoffMsg) {
+          setIsWaitingForHuman(true);
+        }
+      } catch {
         console.error('Failed to parse saved messages');
       }
     } else {
@@ -240,14 +253,42 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
   }, []);
 
+  // Save conversation to Supabase
+  const saveToSupabase = useCallback(async (msgs: Message[], contact?: ContactInfo) => {
+    // Only save if we actually have a session ID
+    if (!sessionId) return;
+    
+    try {
+      await fetch('/api/chat/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          messages: msgs,
+          timestamp: new Date().toISOString(),
+          contactInfo: contact || null,
+          status: isWaitingForHuman ? 'handoff_active' : 'active'
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save to Supabase:', error);
+    }
+  }, [sessionId, isWaitingForHuman]);
+
   // Save to localStorage whenever messages change
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem('kai-messages', JSON.stringify(messages));
-      // Also save to Supabase
-      saveToSupabase(messages);
+      
+      // If the last message is an admin message, we just polled it, 
+      // so we shouldn't push right back and overwrite the DB
+      const isFromAdmin = messages[messages.length - 1]?.role === 'admin';
+      
+      if (!isFromAdmin) {
+        saveToSupabase(messages);
+      }
     }
-  }, [messages]);
+  }, [messages, saveToSupabase]);
 
   // Poll for admin messages every 3 seconds
   useEffect(() => {
@@ -260,6 +301,12 @@ export default function AIChat({ onClose }: AIChatProps) {
           const data = await response.json();
           if (data.messages && data.messages.length > 0) {
             // Compare and add any new messages from the server
+            // Also check if there's any admin messages to silence the AI
+            const hasAdminMsg = data.messages.some((m: Message) => m.role === 'admin');
+            if (hasAdminMsg && !isWaitingForHuman) {
+              setIsWaitingForHuman(true);
+            }
+            
             setMessages((prev: Message[]) => {
               const existingIds = new Set(prev.map(m => m.id));
               const newMessages = data.messages.filter((m: Message) => !existingIds.has(m.id));
@@ -277,25 +324,7 @@ export default function AIChat({ onClose }: AIChatProps) {
 
     const interval = setInterval(pollForAdminMessages, 3000);
     return () => clearInterval(interval);
-  }, [sessionId]);
-
-  // Save conversation to Supabase
-  const saveToSupabase = async (msgs: Message[], contact?: ContactInfo) => {
-    try {
-      await fetch('/api/chat/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          messages: msgs,
-          timestamp: new Date().toISOString(),
-          contactInfo: contact || null
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to save to Supabase:', error);
-    }
-  };
+  }, [sessionId, isWaitingForHuman]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -393,7 +422,7 @@ export default function AIChat({ onClose }: AIChatProps) {
         };
         setMessages((prev) => [...prev, errorMessage]);
       }
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -433,7 +462,7 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
 
     let messageContent = '';
-    let updatedContactInfo = { ...contactInfo };
+    const updatedContactInfo = { ...contactInfo };
     
     if (contactInfo.preferredContact === 'continue_chat') {
       // User wants to chat with human in this chat

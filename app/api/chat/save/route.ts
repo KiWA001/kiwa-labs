@@ -24,11 +24,38 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch existing messages to prevent race conditions overwriting admin messages
+    const { data: existingSession } = await supabase
+      .from('chat_sessions')
+      .select('messages')
+      .eq('session_id', sessionId)
+      .single();
+
+    let messagesToSave = messages;
+
+    if (existingSession && existingSession.messages) {
+      type MsgType = { id: string; timestamp?: string; [key: string]: unknown };
+      const existingIds = new Set(existingSession.messages.map((m: MsgType) => m.id));
+      
+      // Keep existing, append new ones
+      const merged = [...existingSession.messages];
+      for (const msg of messages) {
+        if (!existingIds.has(msg.id)) {
+          merged.push(msg);
+        }
+      }
+      
+      // Sort chronologically by timestamp
+      messagesToSave = merged.sort((a: MsgType, b: MsgType) => 
+        new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()
+      );
+    }
+
     const { data, error } = await supabase
       .from('chat_sessions')
       .upsert({
         session_id: sessionId,
-        messages: messages,
+        messages: messagesToSave,
         contact_info: contactInfo || null,
         status: status || 'active',
         last_updated: timestamp || new Date().toISOString(),
