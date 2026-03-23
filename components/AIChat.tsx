@@ -3,6 +3,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import {
+  CHAT_MESSAGES_KEY,
+  clearAdminReadMarker,
+  clearStoredChatMessages,
+  createChatSessionId,
+  getStoredChatSessionId,
+  markLatestAdminMessageRead,
+  setStoredChatMessages,
+  setStoredChatSessionId,
+} from '@/lib/chatSession';
 
 interface Message {
   id: string;
@@ -22,12 +32,7 @@ interface AIChatProps {
   onClose: () => void;
 }
 
-const DEFAULT_WELCOME_MESSAGE: Message = {
-  id: 'welcome',
-  role: 'assistant',
-  content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
-  timestamp: new Date().toISOString()
-};
+const DEFAULT_WELCOME_CONTENT = "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.";
 
 const DEFAULT_CONTACT_INFO: ContactInfo = {
   email: '',
@@ -36,8 +41,15 @@ const DEFAULT_CONTACT_INFO: ContactInfo = {
   preferredContact: 'email'
 };
 
-function createSessionId() {
-  return `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+const CHAT_POLL_INTERVAL_MS = 1000;
+
+function createWelcomeMessage(): Message {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: DEFAULT_WELCOME_CONTENT,
+    timestamp: new Date().toISOString()
+  };
 }
 
 // Contact Form Component
@@ -228,17 +240,17 @@ export default function AIChat({ onClose }: AIChatProps) {
 
   // Generate or retrieve session ID
   useEffect(() => {
-    let storedSessionId = localStorage.getItem('kai-session-id');
+    let storedSessionId = getStoredChatSessionId();
     if (!storedSessionId) {
-      storedSessionId = createSessionId();
-      localStorage.setItem('kai-session-id', storedSessionId);
+      storedSessionId = createChatSessionId();
+      setStoredChatSessionId(storedSessionId);
     }
     setSessionId(storedSessionId);
   }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
-    const savedMessages = localStorage.getItem('kai-messages');
+    const savedMessages = localStorage.getItem(CHAT_MESSAGES_KEY);
     
     if (savedMessages) {
       try {
@@ -262,7 +274,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       }
     } else {
       // Set welcome message if no history
-      setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date().toISOString() }]);
+      setMessages([createWelcomeMessage()]);
     }
   }, []);
 
@@ -275,6 +287,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       await fetch('/api/chat/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({
           sessionId,
           messages: msgs,
@@ -291,7 +304,7 @@ export default function AIChat({ onClose }: AIChatProps) {
   // Save to localStorage whenever messages change
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem('kai-messages', JSON.stringify(messages));
+      setStoredChatMessages(messages);
       
       // If the last message is an admin message, we just polled it, 
       // so we shouldn't push right back and overwrite the DB
@@ -303,7 +316,15 @@ export default function AIChat({ onClose }: AIChatProps) {
     }
   }, [messages, saveToSupabase]);
 
-  // Poll for admin messages every 3 seconds
+  useEffect(() => {
+    if (!sessionId || messages.length === 0) {
+      return;
+    }
+
+    markLatestAdminMessageRead(sessionId, messages);
+  }, [messages, sessionId]);
+
+  // Poll for admin messages at a near real-time interval
   useEffect(() => {
     if (!sessionId) return;
     
@@ -311,7 +332,9 @@ export default function AIChat({ onClose }: AIChatProps) {
       const pollSessionId = sessionId;
 
       try {
-        const response = await fetch(`/api/chat/poll?sessionId=${pollSessionId}`);
+        const response = await fetch(`/api/chat/poll?sessionId=${encodeURIComponent(pollSessionId)}&t=${Date.now()}`, {
+          cache: 'no-store',
+        });
         if (response.ok) {
           const data = await response.json();
           if (sessionIdRef.current !== pollSessionId) {
@@ -341,8 +364,26 @@ export default function AIChat({ onClose }: AIChatProps) {
       }
     };
 
-    const interval = setInterval(pollForAdminMessages, 3000);
-    return () => clearInterval(interval);
+    pollForAdminMessages();
+
+    const interval = setInterval(pollForAdminMessages, CHAT_POLL_INTERVAL_MS);
+    const handleFocus = () => {
+      void pollForAdminMessages();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void pollForAdminMessages();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [sessionId, isWaitingForHuman]);
 
   const scrollToBottom = () => {
@@ -359,11 +400,9 @@ export default function AIChat({ onClose }: AIChatProps) {
 
   const handleClearChat = () => {
     if (confirm('Are you sure you want to clear the chat history?')) {
-      const welcomeMessage = {
-        ...DEFAULT_WELCOME_MESSAGE,
-        timestamp: new Date().toISOString()
-      };
-      const nextSessionId = createSessionId();
+      const previousSessionId = sessionIdRef.current;
+      const welcomeMessage = createWelcomeMessage();
+      const nextSessionId = createChatSessionId();
 
       setMessages([welcomeMessage]);
       setInput('');
@@ -374,9 +413,10 @@ export default function AIChat({ onClose }: AIChatProps) {
       setIsWaitingForHuman(false);
       setSessionId(nextSessionId);
 
-      localStorage.removeItem('kai-messages');
-      localStorage.setItem('kai-session-id', nextSessionId);
-      localStorage.setItem('kai-messages', JSON.stringify([welcomeMessage]));
+      clearAdminReadMarker(previousSessionId);
+      clearStoredChatMessages();
+      setStoredChatSessionId(nextSessionId);
+      setStoredChatMessages([welcomeMessage]);
     }
   };
 
@@ -416,6 +456,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ 
           message: input.trim(),
           fullConversation,
@@ -519,12 +560,13 @@ export default function AIChat({ onClose }: AIChatProps) {
       await fetch('/api/chat/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({
           sessionId,
           messages: [...messages, handoffMessage],
           timestamp: new Date().toISOString(),
           status: 'handoff_requested',
-          contactInfo
+          contactInfo: updatedContactInfo
         }),
       });
     } catch (error) {

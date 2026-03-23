@@ -7,8 +7,14 @@ import { motion, AnimatePresence, Variants } from 'framer-motion';
 import WaterEffect from '@/components/WaterEffect';
 import Image from 'next/image';
 import AIChat from '@/components/AIChat';
+import {
+  CHAT_STATE_EVENT,
+  getStoredChatSessionId,
+  hasUnreadAdminMessages,
+} from '@/lib/chatSession';
 
 type Stage = 'intro' | 'tagline' | 'landing';
+type ChatPollMessage = { id?: string; role?: string; timestamp?: string };
 
 export default function Home() {
   const [stage, setStage] = useState<Stage>('intro');
@@ -49,6 +55,7 @@ export default function Home() {
   const [webviewUrl, setWebviewUrl] = useState<string | null>(null);
   const [rippleActive, setRippleActive] = useState(true);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [hasUnreadAdminReply, setHasUnreadAdminReply] = useState(false);
   const isTransitioningRef = useRef(false);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = useRef(false);
@@ -90,6 +97,70 @@ export default function Home() {
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const syncUnreadAdminReply = async () => {
+      const currentSessionId = getStoredChatSessionId();
+      if (!currentSessionId) {
+        if (!isCancelled) {
+          setHasUnreadAdminReply(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/chat/poll?sessionId=${encodeURIComponent(currentSessionId)}&t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          if (!isCancelled) {
+            setHasUnreadAdminReply(false);
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (!isCancelled) {
+          setHasUnreadAdminReply(hasUnreadAdminMessages(currentSessionId, (data.messages || []) as ChatPollMessage[]));
+        }
+      } catch {
+        if (!isCancelled) {
+          setHasUnreadAdminReply(false);
+        }
+      }
+    };
+
+    void syncUnreadAdminReply();
+
+    const interval = window.setInterval(() => {
+      void syncUnreadAdminReply();
+    }, 1000);
+
+    const handleChatStateChanged = () => {
+      void syncUnreadAdminReply();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncUnreadAdminReply();
+      }
+    };
+
+    window.addEventListener(CHAT_STATE_EVENT, handleChatStateChanged);
+    window.addEventListener('focus', handleChatStateChanged);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener(CHAT_STATE_EVENT, handleChatStateChanged);
+      window.removeEventListener('focus', handleChatStateChanged);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Constants for transition
@@ -676,8 +747,26 @@ export default function Home() {
                 fontWeight: 500,
                 color: '#000000',
                 letterSpacing: '-0.01em',
-                cursor: 'pointer'
-              }}>Contact Us</span>
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <span>Contact Us</span>
+              {hasUnreadAdminReply && (
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#dc2626',
+                    display: 'inline-block',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </span>
           </motion.div>
         )}
 
@@ -2055,7 +2144,20 @@ export default function Home() {
                         }
                       }}
                     >
-                      {item}
+                      <span>{item}</span>
+                      {item === 'Start a Project' && hasUnreadAdminReply && (
+                        <span
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#dc2626',
+                            display: 'inline-block',
+                            marginLeft: '10px',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                     </motion.div>
                   ))}
                 </div>

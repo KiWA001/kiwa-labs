@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,10 +36,12 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ 
+    const response = NextResponse.json({ 
       messages: sessionData?.messages || [],
       message: 'Polling endpoint ready'
     });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    return response;
   } catch (error) {
     console.error('Poll error:', error);
     return NextResponse.json(

@@ -31,6 +31,8 @@ interface ChatSession {
   };
 }
 
+const ADMIN_POLL_INTERVAL_MS = 1000;
+
 export default function AdminPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
@@ -94,7 +96,9 @@ export default function AdminPage() {
       if (!isAuthenticated) return;
       
       try {
-        const response = await fetch('/api/admin/sessions');
+        const response = await fetch(`/api/admin/sessions?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
         if (response.ok) {
           const data = await response.json();
           const normalizedSessions = (data.sessions || []).map((session: ChatSession) => ({
@@ -122,9 +126,25 @@ export default function AdminPage() {
     };
 
     checkSessions();
-    // Poll every 3 seconds for updates
-    const interval = setInterval(checkSessions, 3000);
-    return () => clearInterval(interval);
+
+    const interval = setInterval(checkSessions, ADMIN_POLL_INTERVAL_MS);
+    const handleFocus = () => {
+      void checkSessions();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkSessions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -187,6 +207,8 @@ export default function AdminPage() {
     e.preventDefault();
     if (!adminInput.trim() || !selectedSession) return;
 
+    const previousSelectedSession = selectedSession;
+    const previousSessions = sessions;
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'admin',
@@ -215,6 +237,7 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({
           sessionId: selectedSession.sessionId,
           message: newMessage
@@ -222,10 +245,32 @@ export default function AdminPage() {
       });
 
       if (!response.ok) {
-        console.error('Failed to save message');
+        throw new Error('Failed to save message');
+      }
+
+      const data = await response.json();
+      const savedSession = data.data?.[0];
+
+      if (savedSession) {
+        const normalizedSession = {
+          ...savedSession,
+          sessionId: savedSession.session_id || savedSession.sessionId,
+          lastUpdated: savedSession.last_updated || savedSession.lastUpdated,
+          contactInfo: savedSession.contact_info || savedSession.contactInfo
+        };
+
+        setSelectedSession(normalizedSession);
+        setSessions((prev) => {
+          const withoutCurrent = prev.filter((session) => session.sessionId !== normalizedSession.sessionId);
+          return [normalizedSession, ...withoutCurrent];
+        });
       }
     } catch (error) {
       console.error('Send message error:', error);
+      setSelectedSession(previousSelectedSession);
+      setSessions(previousSessions);
+      setAdminInput(newMessage.content);
+      alert('Message failed to send. Please try again.');
     }
   };
 

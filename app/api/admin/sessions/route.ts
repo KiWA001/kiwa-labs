@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,9 +28,11 @@ export async function GET() {
 
     console.log(`Found ${sessions?.length || 0} sessions`);
     
-    return NextResponse.json({ 
+    const response = NextResponse.json({ 
       sessions: sessions || []
     });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    return response;
   } catch (error) {
     console.error('Admin fetch error:', error);
     return NextResponse.json(
