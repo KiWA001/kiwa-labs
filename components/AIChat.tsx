@@ -22,6 +22,24 @@ interface AIChatProps {
   onClose: () => void;
 }
 
+const DEFAULT_WELCOME_MESSAGE: Message = {
+  id: 'welcome',
+  role: 'assistant',
+  content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
+  timestamp: new Date().toISOString()
+};
+
+const DEFAULT_CONTACT_INFO: ContactInfo = {
+  email: '',
+  phone: '',
+  whatsapp: '',
+  preferredContact: 'email'
+};
+
+function createSessionId() {
+  return `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
 // Contact Form Component
 function ContactFormContent({ 
   contactInfo, 
@@ -198,21 +216,21 @@ export default function AIChat({ onClose }: AIChatProps) {
   const [sessionId, setSessionId] = useState<string>('');
   const [showHandoff, setShowHandoff] = useState(false);
   const [showContactForm, setShowContactForm] = useState(false);
-  const [contactInfo, setContactInfo] = useState<ContactInfo>({
-    email: '',
-    phone: '',
-    whatsapp: '',
-    preferredContact: 'email'
-  });
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(DEFAULT_CONTACT_INFO);
   const [isWaitingForHuman, setIsWaitingForHuman] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef('');
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   // Generate or retrieve session ID
   useEffect(() => {
     let storedSessionId = localStorage.getItem('kai-session-id');
     if (!storedSessionId) {
-      storedSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      storedSessionId = createSessionId();
       localStorage.setItem('kai-session-id', storedSessionId);
     }
     setSessionId(storedSessionId);
@@ -244,12 +262,7 @@ export default function AIChat({ onClose }: AIChatProps) {
       }
     } else {
       // Set welcome message if no history
-      setMessages([{
-        id: 'welcome',
-        role: 'assistant',
-        content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
-        timestamp: new Date().toISOString()
-      }]);
+      setMessages([{ ...DEFAULT_WELCOME_MESSAGE, timestamp: new Date().toISOString() }]);
     }
   }, []);
 
@@ -295,10 +308,16 @@ export default function AIChat({ onClose }: AIChatProps) {
     if (!sessionId) return;
     
     const pollForAdminMessages = async () => {
+      const pollSessionId = sessionId;
+
       try {
-        const response = await fetch(`/api/chat/poll?sessionId=${sessionId}`);
+        const response = await fetch(`/api/chat/poll?sessionId=${pollSessionId}`);
         if (response.ok) {
           const data = await response.json();
+          if (sessionIdRef.current !== pollSessionId) {
+            return;
+          }
+
           if (data.messages && data.messages.length > 0) {
             // Compare and add any new messages from the server
             // Also check if there's any admin messages to silence the AI
@@ -341,18 +360,23 @@ export default function AIChat({ onClose }: AIChatProps) {
   const handleClearChat = () => {
     if (confirm('Are you sure you want to clear the chat history?')) {
       const welcomeMessage = {
-        id: 'welcome',
-        role: 'assistant' as const,
-        content: "Hello, welcome to KiWA Labs. You can reach us directly at info@kiwalabs.dev, or tell me a bit about what you'd like to build and I can guide you.",
+        ...DEFAULT_WELCOME_MESSAGE,
         timestamp: new Date().toISOString()
       };
+      const nextSessionId = createSessionId();
+
       setMessages([welcomeMessage]);
+      setInput('');
+      setIsLoading(false);
       setShowHandoff(false);
       setShowContactForm(false);
-      setIsWaitingForHuman(false); // Reset waiting for human
+      setContactInfo({ ...DEFAULT_CONTACT_INFO });
+      setIsWaitingForHuman(false);
+      setSessionId(nextSessionId);
+
       localStorage.removeItem('kai-messages');
-      // Clear from Supabase too
-      saveToSupabase([welcomeMessage]);
+      localStorage.setItem('kai-session-id', nextSessionId);
+      localStorage.setItem('kai-messages', JSON.stringify([welcomeMessage]));
     }
   };
 
@@ -381,6 +405,8 @@ export default function AIChat({ onClose }: AIChatProps) {
     setIsLoading(true);
 
     try {
+      const requestSessionId = sessionId;
+
       // Send full conversation history
       const fullConversation = messages.map(m => ({
         role: m.role,
@@ -398,6 +424,9 @@ export default function AIChat({ onClose }: AIChatProps) {
       });
 
       const data = await response.json();
+      if (sessionIdRef.current !== requestSessionId) {
+        return;
+      }
 
       if (data.response) {
         const assistantMessage: Message = {

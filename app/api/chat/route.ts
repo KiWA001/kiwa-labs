@@ -71,16 +71,13 @@ Our senior developers and project leads will analyze your requirements in detail
 
 Would you like me to connect you with the KiWA Labs team now?"
 
-BUDGET AND PRICING - CRITICAL RULE
-You may give estimates if asked or if the user insists.
-Whenever you mention ANY price, you MUST explicitly state that it is ONLY an estimate, and that final pricing is confirmed after full scoping.
-Never argue about price.
-Never compete with cheap alternatives.
-Internal estimation reference (do not expose as internal):
-1. Starter Website (For individuals & small businesses): N120k to N250k
-2. Business Growth Website (For SMEs that need leads, forms, dashboards): N300k to N750k
-3. E-Commerce / Booking Platform (For selling products or managing appointments): N600k to N1.2m
-4. Custom Web Application (Login systems, dashboards, staff systems, tracking, internal tools): N1.2m to N3.5m+
+PRICING RULE - ABSOLUTE
+Never provide a price, price range, estimate, guess, ballpark, quote, budget figure, rate, fee, or any numeric cost.
+Do not give a "starting from" number.
+Do not provide pricing even if the user insists.
+If the user asks for pricing or keeps pushing for numbers, immediately set readyForHandoff to true.
+When this happens, respond with:
+"I can't provide pricing here. Tap the button below to connect with the KiWA Labs team."
 
 PUSHBACK HANDLING
 If the user says it is cheaper or faster elsewhere:
@@ -96,7 +93,7 @@ CRITICAL JSON FORMAT RULE:
 Your entire response must be ONLY a valid JSON object. Return ONLY this format:
 {"response":"Your message here with **bold** text","contextSummary":"Brief conversation summary","readyForHandoff":false}
 
-The readyForHandoff field should be true ONLY when you have gathered sufficient information OR when the user explicitly requests human assistance.`;
+The readyForHandoff field should be true ONLY when you have gathered sufficient information, when the user explicitly requests human assistance, OR when the user asks for pricing/cost details.`;
 
 // Keywords that trigger automatic handoff
 const HANDOFF_KEYWORDS = [
@@ -107,9 +104,42 @@ const HANDOFF_KEYWORDS = [
   'not a bot', 'live agent', 'representative'
 ];
 
+const PRICING_KEYWORDS = [
+  'price', 'pricing', 'how much', 'cost', 'quote', 'estimate',
+  'ballpark', 'rate', 'fee', 'charge', 'starting from', 'starting at'
+];
+
+const PRICING_INSISTENCE_KEYWORDS = [
+  'just tell me', 'just give me', 'give me a number', 'even a range',
+  'at least tell me', 'be specific', 'rough number', 'rough idea',
+  'just answer', 'answer the question', 'stop dodging', 'stop avoiding'
+];
+
+function normalizeMessage(message: string): string {
+  return message.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function includesAnyKeyword(message: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => message.includes(keyword));
+}
+
 function checkForHandoffIntent(message: string): boolean {
-  const lowerMessage = message.toLowerCase();
-  return HANDOFF_KEYWORDS.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
+  const normalizedMessage = normalizeMessage(message);
+  return includesAnyKeyword(normalizedMessage, HANDOFF_KEYWORDS);
+}
+
+function checkForPricingIntent(message: string): boolean {
+  const normalizedMessage = normalizeMessage(message);
+  return includesAnyKeyword(normalizedMessage, PRICING_KEYWORDS);
+}
+
+function checkForPricingInsistence(message: string, conversation: Array<{ role: string; content: string }>): boolean {
+  const normalizedMessage = normalizeMessage(message);
+  if (!includesAnyKeyword(normalizedMessage, PRICING_INSISTENCE_KEYWORDS)) {
+    return false;
+  }
+
+  return conversation.slice(-6).some((item) => item.role === 'user' && checkForPricingIntent(item.content));
 }
 
 // Function to summarize older messages if over 50
@@ -146,14 +176,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check for automatic handoff trigger
-    const autoHandoff = checkForHandoffIntent(message);
-
     // Process conversation history (limit to 50 messages with summarization)
     let processedConversation = fullConversation || [];
     if (processedConversation.length > 50) {
       processedConversation = summarizeConversation(processedConversation);
     }
+
+    const autoPricingHandoff =
+      checkForPricingIntent(message) || checkForPricingInsistence(message, processedConversation);
+
+    if (autoPricingHandoff) {
+      return NextResponse.json({
+        response: "I can't provide pricing here. Tap the button below to connect with the KiWA Labs team.",
+        contextSummary: 'User requested pricing details and was routed to the team.',
+        readyForHandoff: true,
+        sessionId: sessionId || null,
+        messageCount: processedConversation.length
+      });
+    }
+
+    // Check for automatic handoff trigger
+    const autoHandoff = checkForHandoffIntent(message);
 
     // Build messages array with full conversation history
     const messagesArray: Array<{ role: string; content: string }> = [
@@ -215,7 +258,7 @@ export async function POST(request: Request) {
       if (!parsedResponse.response) {
         throw new Error('No response field in JSON');
       }
-    } catch (e) {
+    } catch {
       // If JSON parsing fails, extract text between quotes or use raw content
       const responseMatch = aiContent.match(/"response"\s*:\s*"([^"]+)"/);
       const summaryMatch = aiContent.match(/"contextSummary"\s*:\s*"([^"]+)"/);

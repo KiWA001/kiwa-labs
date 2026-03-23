@@ -6,7 +6,6 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import WaterEffect from '@/components/WaterEffect';
 import Image from 'next/image';
-import ExcelPricing from '@/components/ExcelPricing';
 import AIChat from '@/components/AIChat';
 
 type Stage = 'intro' | 'tagline' | 'landing';
@@ -19,7 +18,6 @@ export default function Home() {
     { id: 'capabilities', label: 'Capabilities' },
     { id: 'why-choose-us', label: 'Why Choose Us' },
     { id: 'selected-works', label: 'Our Work' },
-    { id: 'pricing', label: 'Pricing' },
     { id: 'journal', label: 'Journal' },
     { id: 'vision-2030', label: 'Vision 2030' },
     { id: 'our-impact', label: 'Our Impact' },
@@ -33,6 +31,14 @@ export default function Home() {
       prev: currentIndex > 0 ? MENU_ITEMS[currentIndex - 1] : null,
       next: currentIndex < MENU_ITEMS.length - 1 ? MENU_ITEMS[currentIndex + 1] : null
     };
+  };
+
+  const resolveMenuSection = (sectionId: string) => (
+    sectionId === 'start-a-project' ? 'contact-us' : sectionId
+  );
+
+  const openMenuSection = (sectionId: string) => {
+    setActiveMenuSection(resolveMenuSection(sectionId));
   };
 
 
@@ -663,7 +669,7 @@ export default function Home() {
             }}
           >
             <span
-              onClick={() => setActiveMenuSection('contact-us')}
+              onClick={() => openMenuSection('contact-us')}
               style={{
                 fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
                 fontSize: '1.2rem',
@@ -721,7 +727,7 @@ export default function Home() {
                     setIsMenuOpen(true);
                   } else {
                     const sectionId = item.label.toLowerCase().replace(/ /g, '-');
-                    setActiveMenuSection(sectionId);
+                    openMenuSection(sectionId);
                   }
                 }}
               >
@@ -806,9 +812,9 @@ export default function Home() {
 
             {/* Content */}
             <div style={{
-              maxWidth: (isDesktop && (activeMenuSection === 'selected-works' || activeMenuSection === 'pricing')) ? 'none' : '600px',
+              maxWidth: (isDesktop && activeMenuSection === 'selected-works') ? 'none' : '600px',
               width: '100%',
-              textAlign: (isDesktop && (activeMenuSection === 'selected-works' || activeMenuSection === 'pricing')) ? 'left' : 'center',
+              textAlign: (isDesktop && activeMenuSection === 'selected-works') ? 'left' : 'center',
               fontFamily: "'Apple SD Gothic Neo', 'Noto Sans KR', 'Roboto', sans-serif",
             }}>
               {activeMenuSection === 'why-choose-us' && (
@@ -1499,68 +1505,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Pricing Section */}
-              {activeMenuSection === 'pricing' && (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  maxWidth: isDesktop ? '1000px' : '700px',
-                  width: '100%',
-                }}>
-                  <motion.h2
-                    initial={{ x: -50, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                    style={{
-                      fontSize: 'clamp(1.4rem, 4vw, 2rem)',
-                      fontWeight: 400,
-                      marginBottom: '30px',
-                      letterSpacing: '-0.02em',
-                    }}
-                  >
-                    Pricing
-                  </motion.h2>
-
-                  <motion.div
-                    initial={{ y: 40, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                    style={{ width: '100%' }}
-                  >
-                    {isDesktop ? (
-                      <ExcelPricing />
-                    ) : (
-                      <table style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        fontSize: '0.95rem',
-                      }}>
-                        <thead>
-                          <tr style={{ borderBottom: '2px solid #eee' }}>
-                            <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 500 }}>Website Type</th>
-                            <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 500 }}>KiWA Labs</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            { type: 'Starter Website (For individuals & small businesses)', price: '₦120,000 – ₦250,000' },
-                            { type: 'Business Growth Website (For SMEs that need leads, forms, dashboards)', price: '₦300,000 – ₦750,000' },
-                            { type: 'E-Commerce / Booking Platform (For selling products or managing appointments)', price: '₦600,000 – ₦1,200,000' },
-                            { type: 'Custom Web Application (Login systems, dashboards, staff systems, tracking, internal tools)', price: '₦1,200,000 – ₦3,500,000+' },
-                          ].map((item, i) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                              <td style={{ padding: '14px 8px', color: '#333' }}>{item.type}</td>
-                              <td style={{ padding: '14px 8px', textAlign: 'right', color: '#000', fontWeight: 400 }}>{item.price}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </motion.div>
-                </div>
-              )}
-
               {/* Journal Section */}
               {activeMenuSection === 'journal' && (
                 <div style={{
@@ -1862,7 +1806,7 @@ export default function Home() {
                   <AIChat onClose={() => setActiveMenuSection(null)} />
                 </div>
               )}
-              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'pricing', 'journal', 'our-impact', 'start-a-project', 'contact-us'].includes(activeMenuSection) && (
+              {!['why-choose-us', 'vision-2030', 'capabilities', 'selected-works', 'journal', 'our-impact', 'start-a-project', 'contact-us'].includes(activeMenuSection) && (
                 <>
                   <h2 style={{
                     fontSize: 'clamp(1.8rem, 5vw, 3rem)',
@@ -1922,7 +1866,7 @@ export default function Home() {
               
               const prevElement = prev && (
                 <div
-                  onClick={() => setActiveMenuSection(prev.id)}
+                  onClick={() => openMenuSection(prev.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1944,7 +1888,7 @@ export default function Home() {
               
               const nextElement = next && (
                 <div
-                  onClick={() => setActiveMenuSection(next.id === 'start-a-project' ? 'contact-us' : next.id)}
+                  onClick={() => openMenuSection(next.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1967,7 +1911,7 @@ export default function Home() {
               return (
                 <div style={{
                   width: '100%',
-                  maxWidth: (isDesktop && (activeMenuSection === 'selected-works' || activeMenuSection === 'pricing')) ? '1000px' : '800px',
+                  maxWidth: (isDesktop && activeMenuSection === 'selected-works') ? '1000px' : '800px',
                   borderTop: '1px solid rgba(0,0,0,0.1)',
                   marginTop: '80px',
                   paddingTop: '60px',
@@ -2078,7 +2022,6 @@ export default function Home() {
                   {[
                     'Why Choose Us',
                     'Our Work',
-                    'Pricing',
                     'Journal',
                     'Vision 2030',
                     'Our Impact',
@@ -2104,7 +2047,7 @@ export default function Home() {
                         const sectionId = item === 'Our Work'
                           ? 'selected-works'
                           : item.toLowerCase().replace(/ /g, '-');
-                        setActiveMenuSection(sectionId);
+                        openMenuSection(sectionId);
                         setIsMenuOpen(false);
                         if (stage !== 'landing') {
                           setDirection(1);
