@@ -432,7 +432,6 @@ export default function AdminPage() {
               className="mobile-back-btn"
               onClick={() => {
                 setSelectedSession(null);
-                setShowSidebar(true);
               }}
               style={{
                 padding: '8px 12px',
